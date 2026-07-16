@@ -1,6 +1,5 @@
 import { useContext, useLayoutEffect, useState } from "react";
 import { ThemeContext } from "../context/ThemeContext";
-console.log("CARDS VERSION 6dc7bff");
 
 const NAV_GRADIENT = "linear-gradient(135deg,#0d1b2a 0%,#1a2f44 100%)";
 const NAV_SHADOW = "0 4px 14px rgba(13,27,42,.6)";
@@ -108,6 +107,7 @@ export default function Cards({
     : "12/32";
 
   const handleCvvToggleRequest = () => {
+    console.log("CVV button clicked");
     if (showCVV) {
       setShowCVV(false);
       return;
