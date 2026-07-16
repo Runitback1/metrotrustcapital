@@ -67,6 +67,7 @@ export default function Cards({
   const { isDark, colors } = useContext(ThemeContext);
   const [view, setView] = useState("main");
   const [showCVV, setShowCVV] = useState(false);
+  const [showCVVSupportModal, setShowCVVSupportModal] = useState(false);
   const [showPIN, setShowPIN] = useState(false);
   const [isFrozen, setIsFrozen] = useState(false);
   const [cardLabel, setCardLabel] = useState("");
@@ -104,6 +105,26 @@ export default function Cards({
   const displayExpiry = expiryDate
     ? expiryDate.replace(/\/\d+$/, "/32")
     : "12/32";
+
+  const handleCvvToggleRequest = () => {
+    if (showCVV) {
+      setShowCVV(false);
+      return;
+    }
+
+    setShowCVVSupportModal(true);
+  };
+
+  const handleSupportCvvRequest = () => {
+    const subject = encodeURIComponent("CVV Reveal Request - MetroTrust Card");
+    const body = encodeURIComponent(
+      "Hello Support,%0D%0A%0D%0APlease review my request to reveal my card CVV.%0D%0A%0D%0AThanks."
+    );
+
+    window.location.href = `mailto:support@metrotrustcapital.com?subject=${subject}&body=${body}`;
+    setShowCVVSupportModal(false);
+    alert("Support request prepared. Please send the email and wait for admin review.");
+  };
 
   /* ===== NEW CARD VIEW ===== */
   if (showNewCard) {
@@ -271,7 +292,7 @@ export default function Cards({
             { label: "Expiry Date", value: displayExpiry, mono: true },
             {
               label: "CVV / Security Code", value: showCVV ? (cvv || "452") : "•••", mono: true,
-              action: <button onClick={() => setShowCVV(!showCVV)} style={{ border: "none", background: "transparent", color: colors.primary, cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>{showCVV ? "Hide" : "Reveal"}</button>
+              action: <button onClick={handleCvvToggleRequest} style={{ border: "none", background: "transparent", color: colors.primary, cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>{showCVV ? "Hide" : "Reveal"}</button>
             },
           ].map((item, idx, arr) => (
             <div key={idx} style={{
@@ -286,6 +307,76 @@ export default function Cards({
             </div>
           ))}
         </div>
+
+        {showCVVSupportModal && (
+          <div
+            onClick={() => setShowCVVSupportModal(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(7, 13, 29, 0.72)",
+              zIndex: 140,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 480,
+                borderRadius: 16,
+                background: colors.card,
+                border: `1px solid ${colors.border}`,
+                boxShadow: "0 20px 50px rgba(0,0,0,.35)",
+                padding: isMobile ? "20px 16px" : "24px 22px",
+              }}
+            >
+              <div style={{ fontSize: isMobile ? 19 : 21, fontWeight: 800, color: colors.text, marginBottom: 10 }}>
+                CVV Reveal Request
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.6, color: colors.textSecondary, marginBottom: 18 }}>
+                Admin is currently checking your request. To continue, send an email to support so the team can investigate and approve access.
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={handleSupportCvvRequest}
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    borderRadius: 10,
+                    padding: "12px 14px",
+                    background: NAV_GRADIENT,
+                    color: "white",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Support
+                </button>
+                <button
+                  onClick={() => setShowCVVSupportModal(false)}
+                  style={{
+                    flex: 1,
+                    borderRadius: 10,
+                    padding: "12px 14px",
+                    border: `1px solid ${colors.border}`,
+                    background: "transparent",
+                    color: colors.text,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <button onClick={() => setView("main")} style={{ padding: "14px 20px", borderRadius: 12, border: `1px solid ${colors.border}`, background: "transparent", color: colors.text, cursor: "pointer", fontWeight: 600, fontSize: 15 }}>
           ← Back to Card
