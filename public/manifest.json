@@ -3,22 +3,22 @@
   "name": "MetroTrust Capital",
   "icons": [
     {
-      "src": "favicon-32.png?v=3",
+      "src": "metrotrust-favicon-32.png",
       "type": "image/png",
       "sizes": "32x32"
     },
     {
-      "src": "logo192.png?v=3",
+      "src": "metrotrust-apple-touch-icon.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "logo512.png?v=3",
+      "src": "metrotrust-logo-512.png",
       "type": "image/png",
       "sizes": "512x512"
     },
     {
-      "src": "metrotrust-mark.svg?v=3",
+      "src": "metrotrust-mark.svg?v=4",
       "type": "image/svg+xml",
       "sizes": "any"
     }
