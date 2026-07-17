@@ -6,6 +6,16 @@
     <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/metrotrust-favicon-32.png" />
     <link rel="shortcut icon" href="%PUBLIC_URL%/metrotrust-favicon.ico" />
     <link rel="alternate icon" href="%PUBLIC_URL%/metrotrust-favicon.ico" />
+    <script>
+      (function () {
+        var dynamicIcon = document.createElement("link");
+        dynamicIcon.rel = "icon";
+        dynamicIcon.type = "image/png";
+        dynamicIcon.sizes = "32x32";
+        dynamicIcon.href = "%PUBLIC_URL%/metrotrust-favicon-32.png?v=" + Date.now();
+        document.head.appendChild(dynamicIcon);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0d1b2a" />
     <meta
