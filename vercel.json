@@ -3,72 +3,49 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "build",
-  "headers": [
-    {
-      "source": "/favicon.ico",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/metrotrust-favicon.ico",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/favicon-32.png",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/metrotrust-favicon-32.png",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/logo192.png",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/metrotrust-apple-touch-icon.png",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/manifest.json",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    }
-  ],
   "routes": [
+    {
+      "src": "/favicon.ico",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      }
+    },
+    {
+      "src": "/metrotrust-favicon.ico",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      }
+    },
+    {
+      "src": "/favicon-32.png",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      }
+    },
+    {
+      "src": "/metrotrust-favicon-32.png",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      }
+    },
+    {
+      "src": "/logo192.png",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      }
+    },
+    {
+      "src": "/metrotrust-apple-touch-icon.png",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      }
+    },
+    {
+      "src": "/manifest.json",
+      "headers": {
+        "Cache-Control": "no-store, max-age=0"
+      }
+    },
     {
       "handle": "filesystem"
     },
