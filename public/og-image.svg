@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">MetroTrust Capital social share image</title>
+  <desc id="desc">MetroTrust Capital brand image for social sharing with the app icon and bank name.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#081321" />
+      <stop offset="55%" stop-color="#10253b" />
+      <stop offset="100%" stop-color="#07101a" />
+    </linearGradient>
+    <linearGradient id="iconOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22384b" />
+      <stop offset="100%" stop-color="#0a1421" />
+    </linearGradient>
+    <linearGradient id="iconInner" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#17293a" />
+      <stop offset="100%" stop-color="#09111b" />
+    </linearGradient>
+    <linearGradient id="glowStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f2f8ff" />
+      <stop offset="100%" stop-color="#cadcff" />
+    </linearGradient>
+    <filter id="iconGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" rx="38" />
+  <path d="M0 460c160-120 365-118 520-42 154 76 285 62 398 17 112-45 198-115 282-84v279H0Z" fill="rgba(55,85,121,0.22)" />
+  <circle cx="1080" cy="114" r="190" fill="rgba(255,255,255,0.04)" />
+  <circle cx="150" cy="548" r="178" fill="rgba(255,255,255,0.03)" />
+  <rect x="96" y="82" width="300" height="300" rx="76" fill="url(#iconOuter)" />
+  <rect x="112" y="98" width="268" height="268" rx="66" fill="url(#iconInner)" />
+  <circle cx="246" cy="230" r="82" fill="rgba(255,255,255,0.02)" stroke="rgba(188,206,232,0.4)" stroke-width="4" />
+  <circle cx="246" cy="230" r="66" fill="rgba(3,10,17,0.34)" stroke="rgba(188,206,232,0.18)" stroke-width="2" />
+  <g filter="url(#iconGlow)" fill="none" stroke="url(#glowStroke)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M194 206 246 163 298 206" stroke-width="9" />
+    <path d="M210 270v-40l35 33 35-33v40" stroke-width="10" />
+  </g>
+  <text x="454" y="224" fill="#f7f8fb" font-family="Georgia, 'Times New Roman', serif" font-size="76" font-weight="700">MetroTrust</text>
+  <text x="456" y="287" fill="#c9d6e8" font-family="Arial, Helvetica, sans-serif" font-size="32" letter-spacing="9">CAPITAL</text>
+  <text x="96" y="466" fill="#eef4fb" font-family="Arial, Helvetica, sans-serif" font-size="42">Secure online banking for cards, transfers, and account access.</text>
+  <rect x="96" y="514" width="1008" height="2" fill="rgba(255,255,255,0.12)" />
+  <text x="96" y="572" fill="#d8e4f4" font-family="Arial, Helvetica, sans-serif" font-size="28">metrotrustcapital.com</text>
+</svg>
