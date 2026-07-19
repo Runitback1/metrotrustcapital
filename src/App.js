@@ -2026,22 +2026,22 @@ const displayImages = isMobile ? mobileImages : images;
           >
             <div
               style={{
-                width: isMobile ? 54 : 64,
-                height: isMobile ? 54 : 64,
-                borderRadius: "50%",
-                background: "radial-gradient(circle at 30% 30%, #dbeafe 0%, #7aa9d8 40%, #24456c 100%)",
-                boxShadow: "0 10px 30px rgba(18, 80, 150, 0.35)",
+                width: isMobile ? 68 : 84,
+                height: isMobile ? 68 : 84,
+                borderRadius: 20,
+                background: "radial-gradient(circle at 45% 32%, #0f2a4b 0%, #06162f 52%, #040f25 100%)",
+                border: "1px solid rgba(141, 169, 206, 0.24)",
+                boxShadow: "0 14px 34px rgba(2, 12, 30, 0.62), inset 0 1px 0 rgba(196, 223, 255, 0.12)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
               }}
             >
-              <svg viewBox="0 0 100 100" style={{ width: isMobile ? 28 : 34, height: isMobile ? 28 : 34 }}>
-                <path d="M18 42 L50 22 L82 42" stroke="#0f2440" strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M24 44 H76" stroke="#0f2440" strokeWidth="4.6" strokeLinecap="round"/>
-                <path d="M26 72 H74" stroke="#0f2440" strokeWidth="5" strokeLinecap="round"/>
-                <path d="M30 71 V49 L40 63 L50 46 L60 63 L70 49 V71" stroke="#0f2440" strokeWidth="5.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg viewBox="0 0 100 100" style={{ width: isMobile ? 44 : 54, height: isMobile ? 44 : 54 }}>
+                <circle cx="50" cy="50" r="34" fill="none" stroke="rgba(168, 196, 232, 0.52)" strokeWidth="2" />
+                <path d="M24 43 L50 25 L76 43" stroke="#d9e8ff" strokeWidth="6.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M29 65 V49 L40 61 L50 47 L60 61 L71 49 V65" stroke="#e8f1ff" strokeWidth="6.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
 
@@ -2062,14 +2062,14 @@ const displayImages = isMobile ? mobileImages : images;
               <div
                 style={{
                   marginTop: 8,
-                  fontSize: isMobile ? 12 : 14,
-                  letterSpacing: ".22em",
+                  fontSize: isMobile ? 11 : 13,
+                  letterSpacing: ".14em",
                   textTransform: "uppercase",
                   color: "rgba(191, 219, 254, 0.88)",
                   fontWeight: 600,
                 }}
               >
-                Welcome to the bank
+                Where banking is simplified
               </div>
             </div>
           </div>
