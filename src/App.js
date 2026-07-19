@@ -2057,7 +2057,7 @@ const displayImages = isMobile ? mobileImages : images;
                   textShadow: "0 2px 18px rgba(4, 12, 27, 0.45)",
                 }}
               >
-                Welcome to MetroTrust Banking
+                Welcome to MetroTrust Capital
               </div>
               <div
                 style={{
