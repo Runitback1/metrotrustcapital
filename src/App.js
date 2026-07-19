@@ -22,6 +22,8 @@ const AUTH_REDIRECT_BASE_URL =
   (process.env.REACT_APP_AUTH_REDIRECT_URL || "").trim() ||
   window.location.origin;
 const AUTH_BOOT_TIMEOUT_MS = Number(process.env.REACT_APP_AUTH_BOOT_TIMEOUT_MS || 12000);
+const LOGIN_INTRO_SHOW_MS = 2500;
+const LOGIN_INTRO_SLIDE_MS = 900;
 
 export default function App() {
   const [isMobile, setIsMobile] =
@@ -1916,6 +1918,7 @@ function LoginContent({
   authInitError,
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [introStage, setIntroStage] = useState("show");
   const isMobile = window.innerWidth < 768;
   
   const images = [
@@ -1962,6 +1965,21 @@ const displayImages = isMobile ? mobileImages : images;
     return () => clearInterval(interval);
   }, [displayImages.length]);
 
+  useEffect(() => {
+    const beginSlide = setTimeout(() => {
+      setIntroStage("slide-out");
+    }, LOGIN_INTRO_SHOW_MS);
+
+    const finishIntro = setTimeout(() => {
+      setIntroStage("done");
+    }, LOGIN_INTRO_SHOW_MS + LOGIN_INTRO_SLIDE_MS);
+
+    return () => {
+      clearTimeout(beginSlide);
+      clearTimeout(finishIntro);
+    };
+  }, []);
+
   const handleLoginKeyPress = (e) => {
     if (e.key === "Enter") {
       login();
@@ -1979,6 +1997,85 @@ const displayImages = isMobile ? mobileImages : images;
         overflowX: "hidden",
       }}
     >
+      {introStage !== "done" && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 30,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: isMobile ? "0 18px" : "0 26px",
+            background: "linear-gradient(160deg, rgba(7,16,33,0.97) 0%, rgba(12,27,49,0.95) 55%, rgba(18,44,79,0.93) 100%)",
+            backdropFilter: "blur(4px)",
+            transform: introStage === "slide-out" ? "translateY(-110%)" : "translateY(0)",
+            opacity: introStage === "slide-out" ? 0 : 1,
+            transition: `transform ${LOGIN_INTRO_SLIDE_MS}ms cubic-bezier(.22,.8,.2,1), opacity ${Math.max(300, LOGIN_INTRO_SLIDE_MS - 180)}ms ease`,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: isMobile ? 12 : 18,
+              color: "#e2ecf8",
+              maxWidth: 760,
+              textAlign: "left",
+            }}
+          >
+            <div
+              style={{
+                width: isMobile ? 54 : 64,
+                height: isMobile ? 54 : 64,
+                borderRadius: "50%",
+                background: "radial-gradient(circle at 30% 30%, #dbeafe 0%, #7aa9d8 40%, #24456c 100%)",
+                boxShadow: "0 10px 30px rgba(18, 80, 150, 0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <svg viewBox="0 0 100 100" style={{ width: isMobile ? 28 : 34, height: isMobile ? 28 : 34 }}>
+                <path d="M18 42 L50 22 L82 42" stroke="#0f2440" strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M24 44 H76" stroke="#0f2440" strokeWidth="4.6" strokeLinecap="round"/>
+                <path d="M26 72 H74" stroke="#0f2440" strokeWidth="5" strokeLinecap="round"/>
+                <path d="M30 71 V49 L40 63 L50 46 L60 63 L70 49 V71" stroke="#0f2440" strokeWidth="5.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontFamily: "Georgia, 'Times New Roman', serif",
+                  fontSize: isMobile ? 24 : 42,
+                  letterSpacing: isMobile ? "0.02em" : "0.04em",
+                  lineHeight: 1.06,
+                  fontWeight: 600,
+                  color: "#edf5ff",
+                  textShadow: "0 2px 18px rgba(4, 12, 27, 0.45)",
+                }}
+              >
+                Welcome to MetroTrust Banking
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: isMobile ? 12 : 14,
+                  letterSpacing: ".22em",
+                  textTransform: "uppercase",
+                  color: "rgba(191, 219, 254, 0.88)",
+                  fontWeight: 600,
+                }}
+              >
+                Welcome to the bank
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isMobile &&
 displayImages.map((img, index) => (
   <img
