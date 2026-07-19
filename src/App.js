@@ -21,6 +21,7 @@ const MAINTENANCE_MESSAGE =
 const AUTH_REDIRECT_BASE_URL =
   (process.env.REACT_APP_AUTH_REDIRECT_URL || "").trim() ||
   window.location.origin;
+const AUTH_BOOT_TIMEOUT_MS = Number(process.env.REACT_APP_AUTH_BOOT_TIMEOUT_MS || 12000);
 
 export default function App() {
   const [isMobile, setIsMobile] =
@@ -91,6 +92,7 @@ export default function App() {
   const [showMenu, setShowMenu] = useState(false);
   const [appLoading, setAppLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authInitError, setAuthInitError] = useState("");
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const lastActivityRef = useRef(Date.now());
   const geoDataRef = useRef({ Country: null, State: null, City: null });
@@ -287,6 +289,7 @@ export default function App() {
   useEffect(() => {
     const getSession = async () => {
       try {
+        setAuthInitError("");
         const recoveryMode = getRecoveryModeFromUrl();
         if (recoveryMode === "pin-reset") {
           setIsPinRecoveryMode(true);
@@ -304,7 +307,14 @@ export default function App() {
           return;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("auth-timeout")), AUTH_BOOT_TIMEOUT_MS);
+          }),
+        ]);
+
+        const { data: { session } } = sessionResult;
         if (session?.user) {
           persistActivity();
           setEmail(session.user.email);
@@ -317,6 +327,12 @@ export default function App() {
 
           await syncPresence(session.user.id);
           setUser(session.user);
+        }
+      } catch (error) {
+        if (error?.message === "auth-timeout") {
+          setAuthInitError("Network is slow or blocked on this carrier. Please retry, switch network, or use the backup domain.");
+        } else {
+          setAuthInitError("Unable to reach secure sign-in right now. Please check network connectivity and try again.");
         }
       } finally {
         setAuthLoading(false);
@@ -1575,6 +1591,7 @@ if (isPinRecoveryMode) {
         login={login}
         signUp={signUp}
         resetPassword={resetPassword}
+        authInitError={authInitError}
       />
     </ThemeProvider>
   );
@@ -1895,7 +1912,8 @@ function LoginContent({
   setTransferPin, 
   login, 
   signUp, 
-  resetPassword 
+  resetPassword,
+  authInitError,
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const isMobile = window.innerWidth < 768;
@@ -2136,6 +2154,24 @@ gap:12
               Secure Banking & Wealth Management
             </div>
           </div>
+
+          {authInitError && (
+            <div
+              style={{
+                width: "100%",
+                borderRadius: 10,
+                border: "1px solid rgba(248, 113, 113, 0.5)",
+                background: "rgba(127, 29, 29, 0.35)",
+                color: "#fecaca",
+                fontSize: window.innerWidth < 768 ? 12 : 13,
+                lineHeight: 1.45,
+                padding: "10px 12px",
+                boxSizing: "border-box",
+              }}
+            >
+              {authInitError}
+            </div>
+          )}
 
           {/* Form Fields */}
           <input
