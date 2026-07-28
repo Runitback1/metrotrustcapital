@@ -1742,6 +1742,7 @@ function AppContent({
                 setActiveTab={handleTabChange}
                 onOpenProfile={() => openProfileTab("dashboard")}
                 fullName={fullName}
+                profilePicture={profilePicture}
               />
             }
         >

@@ -8,6 +8,7 @@ export default function Header({
   setActiveTab,
   onOpenProfile,
   fullName,
+  profilePicture,
 }) {
   const { isDark, toggleTheme, colors } = useContext(ThemeContext);
 
@@ -217,6 +218,7 @@ const initials = (fullName || "Metro Trust")
             letterSpacing: "0.5px",
             transition: "all .2s ease",
             userSelect: "none",
+            overflow: "hidden",
           }}
           onMouseOver={(e) => {
             e.currentTarget.style.background = colors.primary;
@@ -229,7 +231,19 @@ const initials = (fullName || "Metro Trust")
             e.currentTarget.style.transform = "translateY(0)";
           }}
         >
-          {initials}
+          {profilePicture ? (
+            <img
+              src={profilePicture}
+              alt={fullName || "Profile"}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            initials
+          )}
         </div>
       </div>
     </header>
