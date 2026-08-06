@@ -538,7 +538,7 @@ export default function Transfers({
                 textAlign: "center",
               }}
             >
-              External Transfer Initiated
+              Transfer Pending
             </h2>
             <p
               style={{
@@ -549,7 +549,7 @@ export default function Transfers({
                 lineHeight: "1.5",
               }}
             >
-              You have attempted to initiate an external transfer. An authorization code is required to complete this transaction.
+              Your transfer has been placed on pending. An authorization code is required to complete this transaction.
             </p>
             <p
               style={{
