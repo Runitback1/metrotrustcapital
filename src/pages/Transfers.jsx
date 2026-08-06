@@ -538,7 +538,7 @@ export default function Transfers({
                 textAlign: "center",
               }}
             >
-              Transfer Pending
+              External Transfer Initiated
             </h2>
             <p
               style={{
