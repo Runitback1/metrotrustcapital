@@ -453,7 +453,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
                   </div>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: isMobile ? 14 : 15, color: "#ef4444" }}>
+                  <div style={{ fontWeight: 700, fontSize: isMobile ? 14 : 15, color: amountColor.debit }}>
                     -${formatCurrency(ext.amount)}
                   </div>
                   <div style={{
