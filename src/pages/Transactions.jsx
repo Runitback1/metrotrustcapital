@@ -6,6 +6,9 @@ export default function Transactions({ transactions, userExternalTransfers, acco
   const { colors, isDark } = useContext(ThemeContext);
   const [activeFilter, setActiveFilter] = useState("all");
   const [transactionSearch, setTransactionSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [currentPageExternal, setCurrentPageExternal] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
   const getDatePart = (value) => {
     if (!value) return "";
@@ -226,6 +229,28 @@ export default function Transactions({ transactions, userExternalTransfers, acco
     ])
   );
 
+  // Pagination calculations
+  const totalTransactionPages = Math.ceil(searchedTransactions.length / ITEMS_PER_PAGE);
+  const totalExternalPages = Math.ceil(searchedExternalTransfers.length / ITEMS_PER_PAGE);
+  
+  // Reset to page 0 if current page exceeds total pages (happens when search filters)
+  if (currentPage >= totalTransactionPages && totalTransactionPages > 0) {
+    setCurrentPage(0);
+  }
+  if (currentPageExternal >= totalExternalPages && totalExternalPages > 0) {
+    setCurrentPageExternal(0);
+  }
+  
+  const paginatedTransactions = searchedTransactions.slice(
+    currentPage * ITEMS_PER_PAGE,
+    (currentPage + 1) * ITEMS_PER_PAGE
+  );
+  
+  const paginatedExternalTransfers = searchedExternalTransfers.slice(
+    currentPageExternal * ITEMS_PER_PAGE,
+    (currentPageExternal + 1) * ITEMS_PER_PAGE
+  );
+
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Header */}
@@ -303,7 +328,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
               {transactionSearch ? "No matching transactions found" : "No transactions yet"}
             </div>
           </div>
-        ) : searchedTransactions.map((tx, idx) => {
+        ) : paginatedTransactions.map((tx, idx) => {
           const isOutgoing = tx.sender_account === accountNumber;
           const activityKind = getActivityKind(tx);
           const counterparty = isOutgoing
@@ -312,7 +337,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
           return (
             <div key={tx.id} style={{
               padding: isMobile ? "14px 16px" : "16px 20px",
-              borderBottom: idx < filtered.length - 1 ? `1px solid ${colors.border}` : "none",
+              borderBottom: idx < paginatedTransactions.length - 1 ? `1px solid ${colors.border}` : "none",
               display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
@@ -358,6 +383,51 @@ export default function Transactions({ transactions, userExternalTransfers, acco
         })}
       </div>
 
+      {/* Transaction Pagination Controls */}
+      {searchedTransactions.length > 0 && totalTransactionPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <button
+            onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+            disabled={currentPage === 0}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: `1px solid ${colors.border}`,
+              background: currentPage === 0 ? colors.card : "transparent",
+              color: currentPage === 0 ? colors.textSecondary : colors.text,
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: currentPage === 0 ? "not-allowed" : "pointer",
+              opacity: currentPage === 0 ? 0.5 : 1,
+              transition: "all 0.2s ease",
+            }}
+          >
+            ← Previous
+          </button>
+          <div style={{ fontSize: 13, color: colors.textSecondary, fontWeight: 500, minWidth: 60, textAlign: "center" }}>
+            Page {currentPage + 1} of {totalTransactionPages}
+          </div>
+          <button
+            onClick={() => setCurrentPage(Math.min(totalTransactionPages - 1, currentPage + 1))}
+            disabled={currentPage === totalTransactionPages - 1}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: `1px solid ${colors.border}`,
+              background: currentPage === totalTransactionPages - 1 ? colors.card : "transparent",
+              color: currentPage === totalTransactionPages - 1 ? colors.textSecondary : colors.text,
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: currentPage === totalTransactionPages - 1 ? "not-allowed" : "pointer",
+              opacity: currentPage === totalTransactionPages - 1 ? 0.5 : 1,
+              transition: "all 0.2s ease",
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
       {/* External transfers */}
       {searchedExternalTransfers.length > 0 && (
         <div>
@@ -365,7 +435,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
             External Transfers
           </h2>
           <div style={{ background: colors.card, borderRadius: 16, border: `1px solid ${colors.border}`, overflow: "hidden" }}>
-            {searchedExternalTransfers.map((ext, idx, arr) => (
+            {paginatedExternalTransfers.map((ext, idx, arr) => (
               <div key={ext.id} style={{
                 padding: isMobile ? "14px 16px" : "16px 20px",
                 borderBottom: idx < arr.length - 1 ? `1px solid ${colors.border}` : "none",
@@ -397,6 +467,51 @@ export default function Transactions({ transactions, userExternalTransfers, acco
               </div>
             ))}
           </div>
+
+          {/* External Transfers Pagination Controls */}
+          {totalExternalPages > 1 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 16 }}>
+              <button
+                onClick={() => setCurrentPageExternal(Math.max(0, currentPageExternal - 1))}
+                disabled={currentPageExternal === 0}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: `1px solid ${colors.border}`,
+                  background: currentPageExternal === 0 ? colors.card : "transparent",
+                  color: currentPageExternal === 0 ? colors.textSecondary : colors.text,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: currentPageExternal === 0 ? "not-allowed" : "pointer",
+                  opacity: currentPageExternal === 0 ? 0.5 : 1,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                ← Previous
+              </button>
+              <div style={{ fontSize: 13, color: colors.textSecondary, fontWeight: 500, minWidth: 60, textAlign: "center" }}>
+                Page {currentPageExternal + 1} of {totalExternalPages}
+              </div>
+              <button
+                onClick={() => setCurrentPageExternal(Math.min(totalExternalPages - 1, currentPageExternal + 1))}
+                disabled={currentPageExternal === totalExternalPages - 1}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: `1px solid ${colors.border}`,
+                  background: currentPageExternal === totalExternalPages - 1 ? colors.card : "transparent",
+                  color: currentPageExternal === totalExternalPages - 1 ? colors.textSecondary : colors.text,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: currentPageExternal === totalExternalPages - 1 ? "not-allowed" : "pointer",
+                  opacity: currentPageExternal === totalExternalPages - 1 ? 0.5 : 1,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
