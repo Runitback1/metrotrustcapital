@@ -252,7 +252,7 @@ export default function Dashboard({
     },
   ];
 
-  const formatAccountNumber = (value) => String(value || "").replace(/^ACC-\s*/i, "");
+  const formatAccountNumber = (value) => String(value || "").replace(/^(ACC-|REQ-)\s*/i, "");
 
   const parseLocalDate = (dateValue) => {
     if (!dateValue) return null;
