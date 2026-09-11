@@ -51,6 +51,7 @@ export default function Admin({ isMobile }) {
   const [transferFrom, setTransferFrom] = useState("");
   const [transferTo, setTransferTo] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
+  const [transferDescription, setTransferDescription] = useState("Automated account debit");
 
   const [editingTransactionId, setEditingTransactionId] = useState(null);
   const [editTransactionDate, setEditTransactionDate] = useState("");
@@ -895,7 +896,9 @@ export default function Admin({ isMobile }) {
   };
 
   const handleInitiateTransfer = async () => {
-    if (!transferFrom || !transferTo || !transferAmount || isNaN(transferAmount)) {
+    const description = transferDescription.trim();
+
+    if (!transferFrom || !transferTo || !transferAmount || isNaN(transferAmount) || !description) {
       alert("Fill all fields correctly");
       return;
     }
@@ -937,7 +940,7 @@ export default function Admin({ isMobile }) {
           receiver_account: transferTo,
           receiver_name: toData.full_name,
           amount: amt,
-          description: "Automated account debit",
+          description,
           reference: "ADMIN-" + Math.floor(100000 + Math.random() * 900000),
           status: "Completed",
         },
@@ -951,6 +954,7 @@ export default function Admin({ isMobile }) {
       setTransferFrom("");
       setTransferTo("");
       setTransferAmount("");
+      setTransferDescription("Automated account debit");
       setAccounts((current) =>
         current.map((account) => {
           if (account.account_number === transferFrom) {
@@ -1646,6 +1650,14 @@ export default function Admin({ isMobile }) {
                   placeholder="Amount"
                   value={transferAmount}
                   onChange={(e) => setTransferAmount(e.target.value)}
+                  style={{ padding: "12px 14px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.bg, color: colors.text, fontSize: 14, boxSizing: "border-box" }}
+                />
+                <input
+                  type="text"
+                  placeholder="Description shown to the account holder"
+                  value={transferDescription}
+                  onChange={(e) => setTransferDescription(e.target.value)}
+                  maxLength={120}
                   style={{ padding: "12px 14px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.bg, color: colors.text, fontSize: 14, boxSizing: "border-box" }}
                 />
               </div>
