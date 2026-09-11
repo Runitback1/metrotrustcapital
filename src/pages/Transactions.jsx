@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useState } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { formatCurrency } from "../utils/currency";
 import { getTransactionDescription } from "../utils/transactionLabels";
@@ -20,6 +20,19 @@ export default function Transactions({ transactions, userExternalTransfers, acco
       setShowReceiptDetails(false);
     }
   }, [receiptTransaction]);
+
+  useLayoutEffect(() => {
+    if (!selectedReceipt) return;
+
+    const resetScrollPosition = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    resetScrollPosition();
+    requestAnimationFrame(resetScrollPosition);
+  }, [selectedReceipt]);
 
   const getDatePart = (value) => {
     if (!value) return "";
