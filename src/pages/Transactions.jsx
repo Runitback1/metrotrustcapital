@@ -4,10 +4,28 @@ import { formatCurrency } from "../utils/currency";
 
 export default function Transactions({ transactions, userExternalTransfers, accountNumber, isMobile }) {
   const { colors, isDark } = useContext(ThemeContext);
+                <button
+                  type="button"
+                  onClick={() => openReceipt(tx)}
+                  style={{
+                    marginTop: 8,
+                    border: "none",
+                    background: "transparent",
+                    color: colors.primary,
+                    fontSize: isMobile ? 10 : 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  View receipt
+                </button>
   const [activeFilter, setActiveFilter] = useState("all");
   const [transactionSearch, setTransactionSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [currentPageExternal, setCurrentPageExternal] = useState(0);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [showReceiptDetails, setShowReceiptDetails] = useState(false);
   const ITEMS_PER_PAGE = 10;
 
   const getDatePart = (value) => {
@@ -217,6 +235,169 @@ export default function Transactions({ transactions, userExternalTransfers, acco
     return "N/A";
   };
 
+  const getDisplayName = (value, fallback) => {
+    const normalized = String(value || "").trim();
+    return normalized || fallback;
+  };
+
+  const getStableCode = (value, length, numericOnly = false) => {
+    const source = String(value || "transaction");
+    let hash = 0;
+    for (let index = 0; index < source.length; index += 1) {
+      hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
+    }
+
+    const characters = numericOnly ? "0123456789" : "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    let current = hash || 1;
+    for (let index = 0; index < length; index += 1) {
+      current = (current * 1664525 + 1013904223) >>> 0;
+      code += characters[current % characters.length];
+    }
+    return code;
+  };
+
+  const getReceiptData = (tx, externalTransfer = null) => {
+    const isOutgoing = tx ? tx.sender_account === accountNumber : Boolean(externalTransfer);
+    const senderName = getDisplayName(
+      tx?.sender_name || externalTransfer?.sender_name,
+      isOutgoing ? "MetroTrust Capital" : "Credit"
+    );
+    const receiverName = getDisplayName(
+      tx?.receiver_name || externalTransfer?.beneficiary_name,
+      isOutgoing ? "External account" : "MetroTrust Capital"
+    );
+    const statusValue = String(tx?.status || externalTransfer?.status || "Completed").toLowerCase();
+    const status = statusValue.includes("reject") ? "Rejected" : "Completed";
+    const referenceSeed = tx?.id || externalTransfer?.id || `${senderName}-${receiverName}-${tx?.amount}`;
+    const narration = getDisplayName(
+      tx?.description,
+      `${senderName.replace(/\s+/g, "")}to${receiverName.replace(/\s+/g, "")}${getStableCode(referenceSeed, 10)}${status.toLowerCase()}`
+    );
+
+    return {
+      amount: tx?.amount ?? externalTransfer?.amount ?? 0,
+      date: tx ? getTransactionDateLabel(tx) : getExternalTransferDateLabel(externalTransfer),
+      time: tx?.created_at || externalTransfer?.created_at,
+      status,
+      isOutgoing,
+      senderName,
+      receiverName,
+      narration,
+      currency: tx?.currency || externalTransfer?.currency || "USD",
+      referenceCode: getStableCode(`reference-${referenceSeed}`, 12),
+      sessionId: getStableCode(`session-${referenceSeed}`, 12, true),
+    };
+  };
+
+  const openReceipt = (tx, externalTransfer = null) => {
+    setSelectedReceipt(getReceiptData(tx, externalTransfer));
+    setShowReceiptDetails(false);
+  };
+
+  const formatReceiptTime = (value) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime())
+      ? ""
+      : parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const renderReceiptLogo = () => (
+    <svg viewBox="0 0 100 100" style={{ width: 48, height: 48 }} aria-hidden="true">
+      <path d="M24 42L50 24L76 42" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M29 65V48L40 60L50 46L60 60L71 48V65" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M29 68H71" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+    </svg>
+  );
+
+  const renderReceipt = () => {
+    const receipt = selectedReceipt;
+    const title = receipt.isOutgoing
+      ? `Sent to ${receipt.receiverName}`
+      : receipt.senderName === "Credit"
+        ? "Received from external account"
+        : `Received from ${receipt.senderName}`;
+    const primaryParty = receipt.isOutgoing ? receipt.receiverName : receipt.senderName;
+    const statusColor = receipt.status === "Completed" ? colors.success : colors.error;
+
+    return (
+      <div style={{ width: "100%", maxWidth: 760, margin: "0 auto" }}>
+        <button
+          type="button"
+          onClick={() => setSelectedReceipt(null)}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: colors.primary,
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: "pointer",
+            padding: "4px 0 18px",
+          }}
+        >
+          ← Back
+        </button>
+
+        <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 18, overflow: "hidden" }}>
+          <div style={{ padding: isMobile ? "28px 20px 30px" : "38px 40px 34px", textAlign: "center", background: colors.bgSecondary }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: colors.primary, fontWeight: 800, fontSize: 18 }}>
+              {renderReceiptLogo()}
+              <span>MetroTrust Capital</span>
+              <span style={{ fontSize: 25 }} title={receipt.currency}>{receipt.currency === "USD" ? "🇺🇸" : "💱"}</span>
+            </div>
+            <div style={{ marginTop: 28, fontSize: isMobile ? 40 : 48, fontWeight: 800, color: colors.text }}>
+              {receipt.isOutgoing ? "-" : "+"}${formatCurrency(receipt.amount)}
+            </div>
+            <div style={{ marginTop: 12, fontSize: isMobile ? 16 : 18, fontWeight: 700, color: colors.textSecondary }}>
+              {title}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 14, color: colors.textSecondary }}>
+              {receipt.date}{receipt.time ? ` | ${formatReceiptTime(receipt.time)}` : ""}
+            </div>
+          </div>
+
+          <div style={{ padding: isMobile ? "24px 20px" : "30px 40px" }}>
+            <h2 style={{ margin: "0 0 24px", fontSize: isMobile ? 20 : 24, color: colors.text }}>Transaction details</h2>
+            <div style={{ display: "grid", gap: 20 }}>
+              <ReceiptRow colors={colors} label="Status" value={receipt.status} valueColor={statusColor} />
+              <ReceiptRow colors={colors} label={receipt.isOutgoing ? "You sent" : "You received"} value={`$${formatCurrency(receipt.amount)}`} />
+              <ReceiptRow colors={colors} label={receipt.isOutgoing ? "Sent to" : "Received from"} value={primaryParty} />
+              <ReceiptRow colors={colors} label="Narration" value={receipt.narration} />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowReceiptDetails((current) => !current)}
+              style={{
+                width: "100%",
+                marginTop: 28,
+                padding: "12px 0",
+                border: "none",
+                borderTop: `1px solid ${colors.border}`,
+                borderBottom: `1px solid ${colors.border}`,
+                background: "transparent",
+                color: colors.primary,
+                fontSize: 15,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              {showReceiptDetails ? "See less ↑" : "See more ↓"}
+            </button>
+
+            {showReceiptDetails && (
+              <div style={{ display: "grid", gap: 20, marginTop: 22 }}>
+                <ReceiptRow colors={colors} label="Reference code" value={receipt.referenceCode} />
+                <ReceiptRow colors={colors} label="Session ID" value={`${receipt.sessionId.slice(0, 6)}..${receipt.sessionId.slice(-4)}`} />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const searchedExternalTransfers = (userExternalTransfers || []).filter((ext) =>
     matchesSearch(transactionSearch, [
       ext.beneficiary_name,
@@ -250,6 +431,8 @@ export default function Transactions({ transactions, userExternalTransfers, acco
     currentPageExternal * ITEMS_PER_PAGE,
     (currentPageExternal + 1) * ITEMS_PER_PAGE
   );
+
+  if (selectedReceipt) return renderReceipt();
 
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
@@ -463,6 +646,22 @@ export default function Transactions({ transactions, userExternalTransfers, acco
                   }}>
                     {ext.status}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => openReceipt(getMatchingExternalTransaction(ext), ext)}
+                    style={{
+                      marginTop: 8,
+                      border: "none",
+                      background: "transparent",
+                      color: colors.primary,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    View receipt
+                  </button>
                 </div>
               </div>
             ))}
@@ -514,6 +713,15 @@ export default function Transactions({ transactions, userExternalTransfers, acco
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ReceiptRow({ colors, label, value, valueColor }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18 }}>
+      <span style={{ color: colors.textSecondary, fontSize: 15 }}>{label}</span>
+      <span style={{ color: valueColor || colors.text, fontSize: 15, fontWeight: 700, textAlign: "right", overflowWrap: "anywhere" }}>{value}</span>
     </div>
   );
 }
