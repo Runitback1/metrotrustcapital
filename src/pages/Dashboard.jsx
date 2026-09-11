@@ -11,6 +11,7 @@ export default function Dashboard({
   transactions,
   isMobile,
   setActiveTab,
+  onViewTransactionReceipt,
 }) {
   const { isDark, colors } = useContext(ThemeContext);
   const [showBalance, setShowBalance] = useState(true);
@@ -1031,6 +1032,16 @@ export default function Dashboard({
             return (
             <div
               key={tx.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onViewTransactionReceipt?.(tx)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onViewTransactionReceipt?.(tx);
+                }
+              }}
+              aria-label={`View receipt for ${counterparty}`}
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -1040,6 +1051,7 @@ export default function Dashboard({
                   idx < (transactions || []).slice(0, 5).length - 1
                     ? `1px solid ${colors.border}`
                     : "none",
+                  cursor: "pointer",
               }}
             >
               <div

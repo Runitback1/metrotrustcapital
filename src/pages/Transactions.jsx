@@ -1,8 +1,8 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { formatCurrency } from "../utils/currency";
 
-export default function Transactions({ transactions, userExternalTransfers, accountNumber, isMobile }) {
+export default function Transactions({ transactions, userExternalTransfers, accountNumber, isMobile, receiptTransaction, onReceiptClosed }) {
   const { colors, isDark } = useContext(ThemeContext);
   const [activeFilter, setActiveFilter] = useState("all");
   const [transactionSearch, setTransactionSearch] = useState("");
@@ -11,6 +11,13 @@ export default function Transactions({ transactions, userExternalTransfers, acco
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [showReceiptDetails, setShowReceiptDetails] = useState(false);
   const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {
+    if (receiptTransaction) {
+      setSelectedReceipt(getReceiptData(receiptTransaction));
+      setShowReceiptDetails(false);
+    }
+  }, [receiptTransaction]);
 
   const getDatePart = (value) => {
     if (!value) return "";
@@ -288,7 +295,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
   };
 
   const renderReceiptLogo = () => (
-    <svg viewBox="0 0 100 100" style={{ width: 48, height: 48 }} aria-hidden="true">
+    <svg viewBox="0 0 100 100" style={{ width: 30, height: 30 }} aria-hidden="true">
       <path d="M24 42L50 24L76 42" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M29 65V48L40 60L50 46L60 60L71 48V65" stroke="currentColor" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M29 68H71" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
@@ -306,14 +313,17 @@ export default function Transactions({ transactions, userExternalTransfers, acco
     const statusColor = receipt.status === "Completed" ? colors.success : colors.error;
 
     return (
-      <div style={{ width: "100%", maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ width: "100%", maxWidth: 620, margin: "0 auto" }}>
         <button
           type="button"
-          onClick={() => setSelectedReceipt(null)}
+          onClick={() => {
+            setSelectedReceipt(null);
+            onReceiptClosed?.();
+          }}
           style={{
             border: "none",
             background: "transparent",
-            color: colors.primary,
+            color: colors.textSecondary,
             fontSize: 15,
             fontWeight: 700,
             cursor: "pointer",
@@ -324,26 +334,25 @@ export default function Transactions({ transactions, userExternalTransfers, acco
         </button>
 
         <div style={{ background: colors.card, border: `1px solid ${colors.border}`, borderRadius: 18, overflow: "hidden" }}>
-          <div style={{ padding: isMobile ? "28px 20px 30px" : "38px 40px 34px", textAlign: "center", background: colors.bgSecondary }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: colors.primary, fontWeight: 800, fontSize: 18 }}>
+          <div style={{ padding: isMobile ? "22px 16px 24px" : "28px 30px 26px", textAlign: "center", background: colors.bgSecondary }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, color: colors.text, fontWeight: 800, fontSize: 15 }}>
               {renderReceiptLogo()}
               <span>MetroTrust Capital</span>
-              <span style={{ fontSize: 25 }} title={receipt.currency}>{receipt.currency === "USD" ? "🇺🇸" : "💱"}</span>
             </div>
-            <div style={{ marginTop: 28, fontSize: isMobile ? 40 : 48, fontWeight: 800, color: colors.text }}>
+            <div style={{ marginTop: 20, fontSize: isMobile ? 32 : 40, fontWeight: 800, color: colors.text }}>
               {receipt.isOutgoing ? "-" : "+"}${formatCurrency(receipt.amount)}
             </div>
-            <div style={{ marginTop: 12, fontSize: isMobile ? 16 : 18, fontWeight: 700, color: colors.textSecondary }}>
+            <div style={{ marginTop: 9, fontSize: isMobile ? 14 : 16, fontWeight: 700, color: colors.textSecondary }}>
               {title}
             </div>
-            <div style={{ marginTop: 10, fontSize: 14, color: colors.textSecondary }}>
+            <div style={{ marginTop: 8, fontSize: 12, color: colors.textSecondary }}>
               {receipt.date}{receipt.time ? ` | ${formatReceiptTime(receipt.time)}` : ""}
             </div>
           </div>
 
-          <div style={{ padding: isMobile ? "24px 20px" : "30px 40px" }}>
-            <h2 style={{ margin: "0 0 24px", fontSize: isMobile ? 20 : 24, color: colors.text }}>Transaction details</h2>
-            <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ padding: isMobile ? "20px 16px" : "24px 30px" }}>
+            <h2 style={{ margin: "0 0 18px", fontSize: isMobile ? 18 : 20, color: colors.text }}>Transaction details</h2>
+            <div style={{ display: "grid", gap: 14 }}>
               <ReceiptRow colors={colors} label="Status" value={receipt.status} valueColor={statusColor} />
               <ReceiptRow colors={colors} label={receipt.isOutgoing ? "You sent" : "You received"} value={`$${formatCurrency(receipt.amount)}`} />
               <ReceiptRow colors={colors} label={receipt.isOutgoing ? "Sent to" : "Received from"} value={primaryParty} />
@@ -361,8 +370,8 @@ export default function Transactions({ transactions, userExternalTransfers, acco
                 borderTop: `1px solid ${colors.border}`,
                 borderBottom: `1px solid ${colors.border}`,
                 background: "transparent",
-                color: colors.primary,
-                fontSize: 15,
+                color: colors.textSecondary,
+                fontSize: 13,
                 fontWeight: 800,
                 cursor: "pointer",
               }}
@@ -371,7 +380,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
             </button>
 
             {showReceiptDetails && (
-              <div style={{ display: "grid", gap: 20, marginTop: 22 }}>
+              <div style={{ display: "grid", gap: 14, marginTop: 16 }}>
                 <ReceiptRow colors={colors} label="Reference code" value={receipt.referenceCode} />
                 <ReceiptRow colors={colors} label="Session ID" value={`${receipt.sessionId.slice(0, 6)}..${receipt.sessionId.slice(-4)}`} />
               </div>

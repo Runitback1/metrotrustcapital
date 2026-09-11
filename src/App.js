@@ -91,6 +91,7 @@ export default function App() {
     return localStorage.getItem("mt_app_language") || "en";
   });
   const [cardsEntryRequest, setCardsEntryRequest] = useState(null);
+  const [receiptTransaction, setReceiptTransaction] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
   const [appLoading, setAppLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
@@ -1576,6 +1577,8 @@ if (isPinRecoveryMode) {
           setCardsEntryRequest={setCardsEntryRequest}
           profileBackTab={profileBackTab}
           refreshData={refreshData}
+          receiptTransaction={receiptTransaction}
+          setReceiptTransaction={setReceiptTransaction}
         />
       </ThemeProvider>
     );
@@ -1667,6 +1670,8 @@ function AppContent({
   setCardsEntryRequest,
   profileBackTab,
   refreshData,
+  receiptTransaction,
+  setReceiptTransaction,
 }) {
   const isMaintenanceLockedUser =
     email !== "admin@metrotrust.com" &&
@@ -1759,6 +1764,10 @@ function AppContent({
                   transactions={transactions}
                   isMobile={isMobile}
                   setActiveTab={handleTabChange}
+                  onViewTransactionReceipt={(transaction) => {
+                    setReceiptTransaction(transaction);
+                    handleTabChange("transactions");
+                  }}
               />
             )}
 
@@ -1804,6 +1813,8 @@ function AppContent({
                 userExternalTransfers={userExternalTransfers}
                 accountNumber={accountNumber}
                 isMobile={isMobile}
+                receiptTransaction={receiptTransaction}
+                onReceiptClosed={() => setReceiptTransaction(null)}
               />
             )}
 
