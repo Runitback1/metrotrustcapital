@@ -8,6 +8,7 @@ const ACCOUNT_FIELDS = "id, user_id, full_name, email, account_number, balance, 
 const APPROVAL_ACCOUNT_FIELDS = `${ACCOUNT_FIELDS}, account_origin`;
 const TRANSACTION_FIELDS = "id, sender_account, sender_name, receiver_account, receiver_name, amount, description, reference, status, created_at, transaction_date";
 const ACCOUNTS_PAGE_SIZE = 25;
+const AUTOMATED_ACCOUNT_NUMBER = "METROTRUST-AUTOMATED";
 const AUTH_REDIRECT_BASE_URL =
   (process.env.REACT_APP_AUTH_REDIRECT_URL || "").trim() ||
   window.location.origin;
@@ -48,8 +49,8 @@ export default function Admin({ isMobile }) {
   const [accountLoadError, setAccountLoadError] = useState("");
 
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferFrom, setTransferFrom] = useState("");
-  const [transferTo, setTransferTo] = useState("");
+  const [transferAccount, setTransferAccount] = useState("");
+  const [transferDirection, setTransferDirection] = useState("debit");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDescription, setTransferDescription] = useState("Automated account debit");
 
@@ -864,7 +865,13 @@ export default function Admin({ isMobile }) {
         status: "Completed",
       });
 
-      if (transactionError) throw transactionError;
+      if (transactionError) {
+        await supabase
+          .from("accounts")
+          .update({ balance: currentBalance })
+          .eq("account_number", selectedAccountNumber);
+        throw transactionError;
+      }
 
       alert("Transfer approved");
       setExternalTransfers((current) =>
@@ -908,49 +915,53 @@ export default function Admin({ isMobile }) {
 
   const handleInitiateTransfer = async () => {
     const description = transferDescription.trim();
+    const selectedAccountNumber = transferAccount.trim();
+    const amount = Number(transferAmount);
 
-    if (!transferFrom || !transferTo || !transferAmount || isNaN(transferAmount) || !description) {
+    if (!selectedAccountNumber || !Number.isFinite(amount) || amount <= 0 || !description) {
       alert("Fill all fields correctly");
       return;
     }
 
     try {
       setLoading(true);
-      const [fromResult, toResult] = await Promise.all([
-        supabase.from("accounts").select("balance, full_name").eq("account_number", transferFrom).single(),
-        supabase.from("accounts").select("balance, full_name").eq("account_number", transferTo).single(),
-      ]);
-      const { data: fromData, error: fromError } = fromResult;
-      const { data: toData, error: toError } = toResult;
+      const { data: accountData, error: accountError } = await supabase
+        .from("accounts")
+        .select("account_number, balance, full_name")
+        .eq("account_number", selectedAccountNumber)
+        .single();
 
-      if (fromError || toError || !fromData || !toData) {
-        alert("One or both accounts not found");
+      if (accountError || !accountData) {
+        alert("Selected account not found");
         return;
       }
 
-      const amt = parseFloat(transferAmount);
+      const currentBalance = Number(accountData.balance || 0);
+      const nextBalance = transferDirection === "debit"
+        ? currentBalance - amount
+        : currentBalance + amount;
 
-      if (fromData.balance < amt) {
-        alert("Insufficient funds in source account");
+      if (transferDirection === "debit" && currentBalance < amount) {
+        alert("Insufficient funds in selected account");
         return;
       }
 
-      const [fromUpdate, toUpdate] = await Promise.all([
-        supabase.from("accounts").update({ balance: Number(fromData.balance) - amt }).eq("account_number", transferFrom),
-        supabase.from("accounts").update({ balance: Number(toData.balance) + amt }).eq("account_number", transferTo),
-      ]);
+      const accountUpdate = await supabase
+        .from("accounts")
+        .update({ balance: nextBalance })
+        .eq("account_number", selectedAccountNumber);
 
-      if (fromUpdate.error || toUpdate.error) {
-        throw fromUpdate.error || toUpdate.error;
-      }
+      if (accountUpdate.error) throw accountUpdate.error;
+
+      const isDebit = transferDirection === "debit";
 
       const { data: transaction, error: transactionError } = await insertTransactionRecord(
         {
-          sender_account: transferFrom,
-          sender_name: fromData.full_name,
-          receiver_account: transferTo,
-          receiver_name: toData.full_name,
-          amount: amt,
+          sender_account: isDebit ? selectedAccountNumber : AUTOMATED_ACCOUNT_NUMBER,
+          sender_name: isDebit ? accountData.full_name : "MetroTrust Capital",
+          receiver_account: isDebit ? AUTOMATED_ACCOUNT_NUMBER : selectedAccountNumber,
+          receiver_name: isDebit ? "MetroTrust Capital" : accountData.full_name,
+          amount,
           description,
           reference: "ADMIN-" + Math.floor(100000 + Math.random() * 900000),
           status: "Completed",
@@ -960,19 +971,16 @@ export default function Admin({ isMobile }) {
 
       if (transactionError) throw transactionError;
 
-      alert("Transfer completed successfully");
+      alert(`Automated ${isDebit ? "debit" : "credit"} completed successfully`);
       setShowTransferModal(false);
-      setTransferFrom("");
-      setTransferTo("");
+      setTransferAccount("");
+      setTransferDirection("debit");
       setTransferAmount("");
       setTransferDescription("Automated account debit");
       setAccounts((current) =>
         current.map((account) => {
-          if (account.account_number === transferFrom) {
-            return { ...account, balance: Number(fromData.balance) - amt };
-          }
-          if (account.account_number === transferTo) {
-            return { ...account, balance: Number(toData.balance) + amt };
+          if (String(account.account_number) === selectedAccountNumber) {
+            return { ...account, balance: nextBalance };
           }
           return account;
         })
@@ -1246,7 +1254,7 @@ export default function Admin({ isMobile }) {
         }}
         style={{ padding: "12px 18px", borderRadius: 10, border: "none", background: colors.success, color: "white", fontWeight: 800, cursor: "pointer", fontSize: 14 }}
       >
-        + Initiate Account Debit
+        + Initiate Automated Credit/Debit
       </button>
 
       {adminTab === "approvals" && (
@@ -1708,22 +1716,27 @@ export default function Admin({ isMobile }) {
 
           {showTransferModal && (
             <div style={{ background: colors.card, borderRadius: 12, padding: 20, border: `1px solid ${colors.border}` }}>
-              <h3 style={{ fontSize: 16, fontWeight: 800, color: colors.text, marginBottom: 16 }}>Automated Account Debit</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: colors.text, marginBottom: 16 }}>Automated Account Credit or Debit</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
                 <input
                   type="text"
-                  placeholder="From Account Number"
-                  value={transferFrom}
-                  onChange={(e) => setTransferFrom(e.target.value)}
+                  placeholder="Account Number"
+                  value={transferAccount}
+                  onChange={(e) => setTransferAccount(e.target.value)}
                   style={{ padding: "12px 14px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.bg, color: colors.text, fontSize: 14, boxSizing: "border-box" }}
                 />
-                <input
-                  type="text"
-                  placeholder="To Account Number"
-                  value={transferTo}
-                  onChange={(e) => setTransferTo(e.target.value)}
+                <select
+                  value={transferDirection}
+                  onChange={(e) => {
+                    const direction = e.target.value;
+                    setTransferDirection(direction);
+                    setTransferDescription(direction === "credit" ? "Automated account credit" : "Automated account debit");
+                  }}
                   style={{ padding: "12px 14px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.bg, color: colors.text, fontSize: 14, boxSizing: "border-box" }}
-                />
+                >
+                  <option value="debit">Automated debit</option>
+                  <option value="credit">Automated credit</option>
+                </select>
                 <input
                   type="number"
                   placeholder="Amount"
@@ -1733,7 +1746,7 @@ export default function Admin({ isMobile }) {
                 />
                 <input
                   type="text"
-                  placeholder="Description shown to the account holder"
+                  placeholder="Automated description shown to the account holder"
                   value={transferDescription}
                   onChange={(e) => setTransferDescription(e.target.value)}
                   maxLength={120}
