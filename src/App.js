@@ -649,27 +649,34 @@ useEffect(() => {
     const openingDate = new Date().toISOString().split("T")[0];
     const requestAccountNumber = `REQ-${Math.floor(100000000 + Math.random() * 900000000)}`;
 
-    const { error } = await supabase
+    const accountRequestPayload = {
+      user_id: null,
+      full_name: fullName,
+      email: normalizedEmail,
+      opening_date: openingDate,
+      balance: 0,
+      status: "Pending Approval",
+      account_number: requestAccountNumber,
+      routing_number: "",
+      swift_code: "",
+      account_type: "Savings",
+      card_number: "",
+      expiry_date: "",
+      cvv: "",
+      currency: "USD",
+      transfer_pin: transferPin,
+      account_origin: "user_pending_approval",
+    };
+
+    let { error } = await supabase
       .from("accounts")
-      .insert([
-        {
-          user_id: null,
-          full_name: fullName,
-          email: normalizedEmail,
-          opening_date: openingDate,
-          balance: 0,
-          status: "Pending Approval",
-          account_number: requestAccountNumber,
-          routing_number: "",
-          swift_code: "",
-          account_type: "Savings",
-          card_number: "",
-          expiry_date: "",
-          cvv: "",
-          currency: "USD",
-          transfer_pin: transferPin,
-        },
-      ]);
+      .insert([accountRequestPayload]);
+
+    if (error?.message?.includes("account_origin")) {
+      const fallbackPayload = { ...accountRequestPayload };
+      delete fallbackPayload.account_origin;
+      ({ error } = await supabase.from("accounts").insert([fallbackPayload]));
+    }
 
     if (error) {
       alert(error.message);

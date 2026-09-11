@@ -5,6 +5,7 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../lib/supabase";
 import { formatCurrency } from "../utils/currency";
 
 const ACCOUNT_FIELDS = "id, user_id, full_name, email, account_number, balance, status, opening_date, card_number, expiry_date, cvv, last_seen_at";
+const APPROVAL_ACCOUNT_FIELDS = `${ACCOUNT_FIELDS}, account_origin`;
 const TRANSACTION_FIELDS = "id, sender_account, sender_name, receiver_account, receiver_name, amount, description, reference, status, created_at, transaction_date";
 const ACCOUNTS_PAGE_SIZE = 25;
 const AUTH_REDIRECT_BASE_URL =
@@ -25,6 +26,7 @@ export default function Admin({ isMobile }) {
   const [adminTab, setAdminTab] = useState("accounts");
   const [accounts, setAccounts] = useState([]);
   const [approvalRequests, setApprovalRequests] = useState([]);
+  const [approvalView, setApprovalView] = useState("pending");
   const [allTransactions, setAllTransactions] = useState([]);
   const [externalTransfers, setExternalTransfers] = useState([]);
   const [accountSearch, setAccountSearch] = useState("");
@@ -135,6 +137,15 @@ export default function Admin({ isMobile }) {
   const pendingExternalTransferCount = externalTransfers.filter(
     (transfer) => transfer.status === "Pending"
   ).length;
+  const pendingApprovalCount = approvalRequests.filter(
+    (request) => String(request.status || "").toLowerCase() === "pending approval"
+  ).length;
+  const visibleApprovalRequests = approvalRequests.filter((request) => {
+    const status = String(request.status || "").toLowerCase();
+    if (approvalView === "approved") return status === "active";
+    if (approvalView === "rejected") return status === "rejected";
+    return status === "pending approval";
+  });
   const isMissingTransactionDateColumnError = (error) => {
     const message = error?.message || "";
     return (
@@ -284,13 +295,26 @@ export default function Admin({ isMobile }) {
     try {
       const { data, error } = await supabase
         .from("accounts")
-        .select(ACCOUNT_FIELDS)
-        .eq("status", "Pending Approval")
-        .order("opening_date", { ascending: false })
+        .select(APPROVAL_ACCOUNT_FIELDS)
+        .eq("account_origin", "user_pending_approval")
+        .order("created_at", { ascending: false })
         .limit(100);
 
-      if (error) throw error;
-      setApprovalRequests(data || []);
+      if (!error) {
+        setApprovalRequests(data || []);
+      } else {
+        const fallback = await supabase
+          .from("accounts")
+          .select(ACCOUNT_FIELDS)
+          .eq("status", "Pending Approval")
+          .order("opening_date", { ascending: false })
+          .limit(100);
+        if (fallback.error) throw fallback.error;
+        setApprovalRequests((fallback.data || []).map((request) => ({
+          ...request,
+          account_origin: "user_pending_approval",
+        })));
+      }
     } catch (error) {
       console.error("Error fetching approval requests:", error);
       setApprovalRequests([]);
@@ -364,6 +388,7 @@ export default function Admin({ isMobile }) {
         .update({
           user_id: signUpResult.data.user.id,
           status: "Active",
+          account_origin: "user_pending_approval",
           opening_date: requestAccount.opening_date || getTodayDate(),
           account_number:
             String(requestAccount.account_number || "").startsWith("REQ-")
@@ -378,7 +403,7 @@ export default function Admin({ isMobile }) {
           balance: Number(requestAccount.balance || 0),
         })
         .eq("id", requestAccount.id)
-        .select(ACCOUNT_FIELDS);
+        .select(APPROVAL_ACCOUNT_FIELDS);
 
       if (updateError) throw updateError;
       if (!updatedRows || updatedRows.length === 0) {
@@ -389,9 +414,9 @@ export default function Admin({ isMobile }) {
         redirectTo: PASSWORD_RESET_REDIRECT_URL,
       });
 
-      setApprovalRequests((current) =>
-        current.filter((item) => item.id !== requestAccount.id)
-      );
+      setApprovalRequests((current) => current.map((item) => (
+        item.id === requestAccount.id ? updatedRows[0] : item
+      )));
       setAccounts((current) => [updatedRows[0], ...current]);
       alert("Account request approved. A password setup/reset email has been sent to the requester.");
     } catch (error) {
@@ -406,14 +431,14 @@ export default function Admin({ isMobile }) {
       setLoading(true);
       const { error } = await supabase
         .from("accounts")
-        .update({ status: "Rejected" })
+        .update({ status: "Rejected", account_origin: "user_pending_approval" })
         .eq("id", requestAccountId);
 
       if (error) throw error;
 
-      setApprovalRequests((current) =>
-        current.filter((item) => item.id !== requestAccountId)
-      );
+      setApprovalRequests((current) => current.map((item) => (
+        item.id === requestAccountId ? { ...item, status: "Rejected" } : item
+      )));
       alert("Account request rejected.");
     } catch (error) {
       alert("Error rejecting request: " + error.message);
@@ -1110,7 +1135,7 @@ export default function Admin({ isMobile }) {
             }}
           >
             {tab === "accounts" && "Accounts"}
-            {tab === "approvals" && `Approval Requests${approvalRequests.length > 0 ? ` (${approvalRequests.length})` : ""}`}
+            {tab === "approvals" && `Approval Requests${pendingApprovalCount > 0 ? ` (${pendingApprovalCount})` : ""}`}
             {tab === "transactions" && "All Transactions"}
             {tab === "transfers" && `External Transfers${pendingExternalTransferCount > 0 ? ` (${pendingExternalTransferCount})` : ""}`}
           </button>
@@ -1119,12 +1144,38 @@ export default function Admin({ isMobile }) {
 
       {adminTab === "approvals" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {approvalRequests.length === 0 ? (
+          <div style={{ display: "flex", gap: 8, background: colors.card, borderRadius: 10, padding: 4, border: `1px solid ${colors.border}` }}>
+            {[
+              { id: "pending", label: "Pending", count: pendingApprovalCount },
+              { id: "approved", label: "Approved" },
+              { id: "rejected", label: "Rejected" },
+            ].map((view) => (
+              <button
+                key={view.id}
+                onClick={() => setApprovalView(view.id)}
+                style={{
+                  flex: 1,
+                  padding: "9px 10px",
+                  border: "none",
+                  borderRadius: 8,
+                  background: approvalView === view.id ? colors.primary : "transparent",
+                  color: approvalView === view.id ? "white" : colors.textSecondary,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                {view.label}{view.count ? ` (${view.count})` : ""}
+              </button>
+            ))}
+          </div>
+
+          {visibleApprovalRequests.length === 0 ? (
             <div style={{ textAlign: "center", color: colors.textSecondary, padding: "40px 20px" }}>
-              No pending account requests.
+              No {approvalView} account requests.
             </div>
           ) : (
-            approvalRequests.map((req) => (
+            visibleApprovalRequests.map((req) => (
               <div
                 key={req.id}
                 style={{
@@ -1151,7 +1202,14 @@ export default function Admin({ isMobile }) {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {String(req.status || "").toLowerCase() !== "pending approval" && (
+                    <div style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 700 }}>
+                      {req.status}
+                    </div>
+                  )}
+                  {String(req.status || "").toLowerCase() === "pending approval" && (
+                    <>
                   <button
                     onClick={() => handleApproveAccountRequest(req)}
                     disabled={loading}
@@ -1184,6 +1242,8 @@ export default function Admin({ isMobile }) {
                   >
                     {loading ? "Processing..." : "Reject"}
                   </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))
