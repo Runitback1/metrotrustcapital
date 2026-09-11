@@ -1106,18 +1106,22 @@ if (pendingTransfer) {
     const enteredPin = prompt("Enter transfer PIN");
 
     if (!/^\d{4}$/.test(enteredPin)) {
-  setLoading(false);
-  return alert("PIN must be exactly 4 digits");
-}
+      setLoading(false);
+      return alert("PIN must be exactly 4 digits");
+    }
     
     if (enteredPin !== senderAcc.transfer_pin) {
       setLoading(false);
       return alert("Incorrect transfer PIN");
     }
-    if (senderAcc.status === "Frozen") {
+
+    const statusValue = String(senderAcc?.status || "").trim();
+
+    if (statusValue.toLowerCase() === "frozen") {
       setLoading(false);
       return alert(MAINTENANCE_MESSAGE);
     }
+
     if (senderAcc.balance < amt) {
       setLoading(false);
       return alert("Insufficient funds");
@@ -1135,7 +1139,12 @@ if (pendingTransfer) {
 
     const receiverAcc = receiverData[0];
 
-    if (receiverAcc.status === "Frozen") {
+    if (!receiverAcc || !receiverAcc.account_number) {
+      setLoading(false);
+      return alert("Receiver not found");
+    }
+
+    if (String(receiverAcc.status || "").trim().toLowerCase() === "frozen") {
       setLoading(false);
       return alert(MAINTENANCE_MESSAGE);
     }
