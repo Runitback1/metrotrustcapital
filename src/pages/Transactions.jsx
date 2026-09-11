@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { formatCurrency } from "../utils/currency";
 import { getTransactionDescription } from "../utils/transactionLabels";
+import { getReceiptStatus } from "../utils/transactionStatus";
 
 export default function Transactions({ transactions, userExternalTransfers, accountNumber, isMobile, receiptTransaction, onReceiptClosed }) {
   const { colors, isDark } = useContext(ThemeContext);
@@ -259,8 +260,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
       tx?.receiver_name || externalTransfer?.beneficiary_name,
       isOutgoing ? "External account" : "MetroTrust Capital"
     );
-    const statusValue = String(tx?.status || externalTransfer?.status || "Completed").toLowerCase();
-    const status = statusValue.includes("reject") ? "Rejected" : "Completed";
+    const status = getReceiptStatus(externalTransfer?.status || tx?.status);
     const referenceSeed = tx?.id || externalTransfer?.id || `${senderName}-${receiverName}-${tx?.amount}`;
     const narration = getDisplayName(
       getTransactionDescription(tx?.description),
