@@ -1542,6 +1542,7 @@ if (isPinRecoveryMode) {
           cardNumber={cardNumber}
           expiryDate={expiryDate}
           cvv={cvv}
+          transferPin={transferPin}
           dateOfBirth={dateOfBirth}
           setDateOfBirth={setDateOfBirth}
           receiver={receiver}
@@ -1635,6 +1636,7 @@ function AppContent({
   cardNumber,
   expiryDate,
   cvv,
+  transferPin,
   dateOfBirth,
   setDateOfBirth,
   receiver,
