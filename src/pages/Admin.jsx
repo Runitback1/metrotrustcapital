@@ -55,6 +55,17 @@ export default function Admin({ isMobile }) {
 
   const [editingTransactionId, setEditingTransactionId] = useState(null);
   const [editTransactionDate, setEditTransactionDate] = useState("");
+  const [editingTransactionDetailsId, setEditingTransactionDetailsId] = useState(null);
+  const [editTransactionDetails, setEditTransactionDetails] = useState({
+    sender_account: "",
+    sender_name: "",
+    receiver_account: "",
+    receiver_name: "",
+    amount: "",
+    description: "",
+    reference: "",
+    status: "Completed",
+  });
 
   const getTodayDate = () => new Date().toISOString().split("T")[0];
   const normalizeEmail = (value) =>
@@ -974,6 +985,65 @@ export default function Admin({ isMobile }) {
     }
   };
 
+  const startEditTransactionDetails = (transaction) => {
+    setEditingTransactionDetailsId(transaction.id);
+    setEditTransactionDetails({
+      sender_account: transaction.sender_account || "",
+      sender_name: transaction.sender_name || "",
+      receiver_account: transaction.receiver_account || "",
+      receiver_name: transaction.receiver_name || "",
+      amount: String(transaction.amount ?? ""),
+      description: transaction.description || "",
+      reference: transaction.reference || "",
+      status: transaction.status || "Completed",
+    });
+  };
+
+  const handleUpdateTransactionDetails = async (transactionId) => {
+    const amount = Number(editTransactionDetails.amount);
+    const description = editTransactionDetails.description.trim();
+
+    if (!editTransactionDetails.sender_account.trim() || !editTransactionDetails.receiver_account.trim()) {
+      alert("Sender and receiver account numbers are required");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0 || !description) {
+      alert("Enter a valid amount and description");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({
+          sender_account: editTransactionDetails.sender_account.trim(),
+          sender_name: editTransactionDetails.sender_name.trim(),
+          receiver_account: editTransactionDetails.receiver_account.trim(),
+          receiver_name: editTransactionDetails.receiver_name.trim(),
+          amount,
+          description,
+          reference: editTransactionDetails.reference.trim(),
+          status: editTransactionDetails.status,
+        })
+        .eq("id", transactionId)
+        .select(TRANSACTION_FIELDS)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error("No transaction row was updated");
+
+      setAllTransactions((current) => current.map((tx) => (tx.id === transactionId ? data : tx)));
+      setEditingTransactionDetailsId(null);
+      alert("Transaction details updated");
+    } catch (error) {
+      alert("Error updating transaction details: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startEditTransactionDate = (tx) => {
     setEditingTransactionId(tx.id);
     setEditTransactionDate(getTransactionDate(tx));
@@ -1169,6 +1239,15 @@ export default function Admin({ isMobile }) {
           </button>
         ))}
       </div>
+      <button
+        onClick={() => {
+          setAdminTab("transactions");
+          setShowTransferModal(true);
+        }}
+        style={{ padding: "12px 18px", borderRadius: 10, border: "none", background: colors.success, color: "white", fontWeight: 800, cursor: "pointer", fontSize: 14 }}
+      >
+        + Initiate Account Debit
+      </button>
 
       {adminTab === "approvals" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1691,6 +1770,58 @@ export default function Admin({ isMobile }) {
                     alignItems: "center",
                   }}
                 >
+                  <div style={{ gridColumn: isMobile ? "auto" : "1 / -1", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                    <button
+                      onClick={() => startEditTransactionDetails(tx)}
+                      style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${colors.border}`, background: "transparent", color: colors.text, fontWeight: 700, cursor: "pointer", fontSize: 11 }}
+                    >
+                      Edit Details
+                    </button>
+                  </div>
+                  {editingTransactionDetailsId === tx.id && (
+                    <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 8, padding: 12, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.bg }}>
+                      <div style={{ gridColumn: "1 / -1", fontSize: 11, color: colors.textSecondary }}>
+                        Editing updates the transaction record only; it does not move funds or change account balances.
+                      </div>
+                      {[
+                        ["sender_account", "Sender account"],
+                        ["sender_name", "Sender name"],
+                        ["receiver_account", "Receiver account"],
+                        ["receiver_name", "Receiver name"],
+                        ["amount", "Amount"],
+                        ["description", "Description"],
+                        ["reference", "Reference"],
+                      ].map(([field, label]) => (
+                        <input
+                          key={field}
+                          type={field === "amount" ? "number" : "text"}
+                          value={editTransactionDetails[field]}
+                          onChange={(event) => setEditTransactionDetails((current) => ({ ...current, [field]: event.target.value }))}
+                          placeholder={label}
+                          aria-label={label}
+                          style={{ padding: "8px 10px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.card, color: colors.text, fontSize: 12, boxSizing: "border-box" }}
+                        />
+                      ))}
+                      <select
+                        value={editTransactionDetails.status}
+                        onChange={(event) => setEditTransactionDetails((current) => ({ ...current, status: event.target.value }))}
+                        aria-label="Status"
+                        style={{ padding: "8px 10px", borderRadius: 6, border: `1px solid ${colors.border}`, background: colors.card, color: colors.text, fontSize: 12 }}
+                      >
+                        <option value="Completed">Completed</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                      <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6 }}>
+                        <button onClick={() => handleUpdateTransactionDetails(tx.id)} disabled={loading} style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: "#1a3a52", color: "white", fontWeight: 700, cursor: "pointer", fontSize: 11 }}>
+                          {loading ? "Saving..." : "Save Details"}
+                        </button>
+                        <button onClick={() => setEditingTransactionDetailsId(null)} style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${colors.border}`, background: "transparent", color: colors.text, fontWeight: 700, cursor: "pointer", fontSize: 11 }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <div style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 4 }}>From</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: colors.text }}>{tx.sender_name}</div>
