@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { formatCurrency } from "../utils/currency";
+import { getTransactionDescription } from "../utils/transactionLabels";
 
 export default function Transactions({ transactions, userExternalTransfers, accountNumber, isMobile, receiptTransaction, onReceiptClosed }) {
   const { colors, isDark } = useContext(ThemeContext);
@@ -262,7 +263,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
     const status = statusValue.includes("reject") ? "Rejected" : "Completed";
     const referenceSeed = tx?.id || externalTransfer?.id || `${senderName}-${receiverName}-${tx?.amount}`;
     const narration = getDisplayName(
-      tx?.description,
+      getTransactionDescription(tx?.description),
       `${senderName.replace(/\s+/g, "")}to${receiverName.replace(/\s+/g, "")}${getStableCode(referenceSeed, 10)}${status.toLowerCase()}`
     );
 
@@ -543,7 +544,7 @@ export default function Transactions({ transactions, userExternalTransfers, acco
                     {counterparty}
                   </div>
                   <div style={{ fontSize: isMobile ? 11 : 12, color: colors.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
-                    {tx.description || (isOutgoing ? "Transfer sent" : "Transfer received")}
+                    {getTransactionDescription(tx.description) || (isOutgoing ? "Transfer sent" : "Transfer received")}
                   </div>
                   <div style={{ fontSize: isMobile ? 10 : 11, color: colors.textSecondary, opacity: 0.7 }}>
                     {getTransactionDateLabel(tx)} • {new Date(tx.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

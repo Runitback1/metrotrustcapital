@@ -937,7 +937,7 @@ export default function Admin({ isMobile }) {
           receiver_account: transferTo,
           receiver_name: toData.full_name,
           amount: amt,
-          description: "Admin initiated transfer",
+          description: "Automated account debit",
           reference: "ADMIN-" + Math.floor(100000 + Math.random() * 900000),
           status: "Completed",
         },
@@ -1625,7 +1625,7 @@ export default function Admin({ isMobile }) {
 
           {showTransferModal && (
             <div style={{ background: colors.card, borderRadius: 12, padding: 20, border: `1px solid ${colors.border}` }}>
-              <h3 style={{ fontSize: 16, fontWeight: 800, color: colors.text, marginBottom: 16 }}>Admin Initiated Transfer</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: colors.text, marginBottom: 16 }}>Automated Account Debit</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
                 <input
                   type="text"

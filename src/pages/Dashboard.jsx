@@ -2,6 +2,7 @@ import dashboardBuilding from "../assets/images/dashboard-building.jpg";
 import { useState, useContext, useEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext";
 import { formatCurrency } from "../utils/currency";
+import { getTransactionDescription } from "../utils/transactionLabels";
 
 export default function Dashboard({
   fullName,
@@ -1095,7 +1096,7 @@ export default function Dashboard({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {tx.description || (isOutgoing ? "Transfer sent" : "Transfer received")}
+                    {getTransactionDescription(tx.description) || (isOutgoing ? "Transfer sent" : "Transfer received")}
                   </div>
                   <div
                     style={{
