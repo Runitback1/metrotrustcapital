@@ -94,8 +94,11 @@ export default function Admin({ isMobile }) {
     if (!query) return true;
     return fields.some((field) => normalizeSearch(field).includes(query));
   };
-  const filteredAccounts = accounts.filter((account) =>
-    matchesSearch(accountSearch, [
+  const filteredAccounts = accounts.filter((account) => {
+    const status = String(account.status || "").trim().toLowerCase();
+    if (status === "rejected") return false;
+
+    return matchesSearch(accountSearch, [
       account.full_name,
       account.email,
       account.account_number,
@@ -103,8 +106,8 @@ export default function Admin({ isMobile }) {
       account.status,
       account.opening_date,
       account.balance,
-    ])
-  );
+    ]);
+  });
   const sortedFilteredAccounts = [...filteredAccounts].sort((a, b) => {
     const aOnline = isAccountOnline(a) ? 1 : 0;
     const bOnline = isAccountOnline(b) ? 1 : 0;
@@ -213,6 +216,7 @@ export default function Admin({ isMobile }) {
       const { data, error } = await supabase
         .from("accounts")
         .select(ACCOUNT_FIELDS)
+        .not("status", "eq", "Rejected")
         .range(from, from + ACCOUNTS_PAGE_SIZE - 1);
 
       if (error) throw error;
@@ -296,25 +300,45 @@ export default function Admin({ isMobile }) {
       const { data, error } = await supabase
         .from("accounts")
         .select(APPROVAL_ACCOUNT_FIELDS)
-        .eq("account_origin", "user_pending_approval")
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(500);
 
       if (!error) {
-        setApprovalRequests(data || []);
-      } else {
-        const fallback = await supabase
-          .from("accounts")
-          .select(ACCOUNT_FIELDS)
-          .eq("status", "Pending Approval")
-          .order("opening_date", { ascending: false })
-          .limit(100);
-        if (fallback.error) throw fallback.error;
-        setApprovalRequests((fallback.data || []).map((request) => ({
-          ...request,
-          account_origin: "user_pending_approval",
-        })));
+        const approvalRows = (data || []).filter((request) => {
+          const status = String(request.status || "").trim().toLowerCase();
+          const origin = String(request.account_origin || "").trim().toLowerCase();
+          return (
+            origin === "user_pending_approval" ||
+            status === "pending approval" ||
+            status === "rejected"
+          );
+        });
+
+        setApprovalRequests(approvalRows);
+        return;
       }
+
+      const fallback = await supabase
+        .from("accounts")
+        .select(ACCOUNT_FIELDS)
+        .order("opening_date", { ascending: false })
+        .limit(500);
+
+      if (fallback.error) throw fallback.error;
+      const fallbackRows = (fallback.data || []).filter((request) => {
+        const status = String(request.status || "").trim().toLowerCase();
+        const origin = String(request.account_origin || "").trim().toLowerCase();
+        return (
+          origin === "user_pending_approval" ||
+          status === "pending approval" ||
+          status === "rejected"
+        );
+      }).map((request) => ({
+        ...request,
+        account_origin: request.account_origin || "user_pending_approval",
+      }));
+
+      setApprovalRequests(fallbackRows);
     } catch (error) {
       console.error("Error fetching approval requests:", error);
       setApprovalRequests([]);

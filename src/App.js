@@ -1079,11 +1079,13 @@ if (pendingTransfer) {
     setLoading(true);
 
     const amt = parseFloat(amount);
+    const recipientAccountNumber = String(receiver || "").trim();
+    const senderAccountNumber = String(accountNumber || "").trim();
 
     const reference =
       "MTX-" + Math.floor(100000 + Math.random() * 900000);
 
-    if (!receiver || !amt) {
+    if (!recipientAccountNumber || !Number.isFinite(amt) || amt <= 0) {
 
       setLoading(false);
       return alert("Enter details");
@@ -1127,12 +1129,12 @@ if (pendingTransfer) {
       return alert("Insufficient funds");
     }
 
-    const { data: receiverData } = await supabase
+    const { data: receiverData, error: receiverError } = await supabase
       .from("accounts")
       .select("*")
-      .eq("account_number", receiver);
+      .eq("account_number", recipientAccountNumber);
 
-    if (!receiverData || receiverData.length === 0) {
+    if (receiverError || !receiverData || receiverData.length === 0) {
       setLoading(false);
       return alert("Receiver not found");
     }
@@ -1149,21 +1151,29 @@ if (pendingTransfer) {
       return alert(MAINTENANCE_MESSAGE);
     }
 
-    await supabase
+    const { error: senderUpdateError } = await supabase
       .from("accounts")
       .update({ balance: senderAcc.balance - amt })
       .eq("user_id", user.id);
 
-    await supabase
+    const { error: receiverUpdateError } = await supabase
       .from("accounts")
       .update({ balance: receiverAcc.balance + amt })
-      .eq("account_number", receiver);
+      .eq("account_number", recipientAccountNumber);
+
+    if (senderUpdateError || receiverUpdateError) {
+      setLoading(false);
+      return alert(
+        "Transfer failed: " +
+          (senderUpdateError?.message || receiverUpdateError?.message || "Unable to update accounts")
+      );
+    }
 
     const { error: insertError } = await insertTransactionWithDate({
-      sender_account: accountNumber,
+      sender_account: senderAccountNumber,
       sender_name: fullName,
 
-      receiver_account: receiver,
+      receiver_account: recipientAccountNumber,
       receiver_name: receiverAcc.full_name,
 
       amount: amt,
@@ -1177,6 +1187,7 @@ if (pendingTransfer) {
     });
 
     if (insertError) {
+      setLoading(false);
       alert("Insert failed: " + insertError.message);
       return;
     }

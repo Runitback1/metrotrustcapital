@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 
-test('renders MetroTrust branding during app startup', () => {
+test('renders MetroTrust branding during app startup', async () => {
   render(<App />);
-  expect(screen.getByText(/metrotrust capital/i)).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByText(/metrotrust capital/i)).toBeInTheDocument();
+  });
 });

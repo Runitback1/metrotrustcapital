@@ -93,13 +93,15 @@ export default function Transfers({
 
   const handleInternalTransfer = async () => {
     const amt = parseAmount(internalAmount);
+    const recipientAccountNumber = internalRecipient.trim();
+    const senderAccountNumber = String(accountNumber || "").trim();
 
-    if (!internalRecipient.trim() || !Number.isFinite(amt) || amt <= 0) {
+    if (!recipientAccountNumber || !Number.isFinite(amt) || amt <= 0) {
       alert("Please fill in all required fields");
       return;
     }
 
-    if (internalRecipient.trim() === accountNumber) {
+    if (recipientAccountNumber === senderAccountNumber) {
       alert("You cannot transfer to the same account");
       return;
     }
@@ -116,12 +118,12 @@ export default function Transfers({
         supabase
           .from("accounts")
           .select("balance, transfer_pin, status")
-          .eq("account_number", accountNumber)
+          .eq("account_number", senderAccountNumber)
           .single(),
         supabase
           .from("accounts")
           .select("balance, full_name, status")
-          .eq("account_number", internalRecipient)
+          .eq("account_number", recipientAccountNumber)
           .single(),
       ]);
       const { data: senderData, error: senderError } = senderResult;
@@ -141,6 +143,12 @@ export default function Transfers({
 
       if (String(senderData.status || "").toLowerCase() === "frozen") {
         alert(MAINTENANCE_MESSAGE);
+        setLoading(false);
+        return;
+      }
+
+      if (receiverError || !receiverData) {
+        alert("Recipient account not found");
         setLoading(false);
         return;
       }
@@ -166,21 +174,15 @@ export default function Transfers({
         return;
       }
 
-      if (receiverError || !receiverData) {
-        alert("Recipient account not found");
-        setLoading(false);
-        return;
-      }
-
       const [senderUpdate, receiverUpdate] = await Promise.all([
         supabase
           .from("accounts")
           .update({ balance: senderBalance - amt })
-          .eq("account_number", accountNumber),
+          .eq("account_number", senderAccountNumber),
         supabase
           .from("accounts")
           .update({ balance: (Number.isFinite(receiverBalance) ? receiverBalance : 0) + amt })
-          .eq("account_number", internalRecipient),
+          .eq("account_number", recipientAccountNumber),
       ]);
 
       if (senderUpdate.error || receiverUpdate.error) {
@@ -190,7 +192,7 @@ export default function Transfers({
       const { error: transactionError } = await insertTransactionRecord({
         sender_account: accountNumber,
         sender_name: fullName,
-        receiver_account: internalRecipient,
+        receiver_account: recipientAccountNumber,
         receiver_name: receiverData.full_name,
         amount: amt,
         description: internalDescription || "Internal Transfer",
