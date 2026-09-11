@@ -59,6 +59,7 @@ export default function Cards({
   cardNumber,
   expiryDate,
   cvv,
+  transferPin,
   isMobile,
   openPaymentLimitsRequest = null,
   onPaymentLimitsRequestHandled,
@@ -440,13 +441,7 @@ export default function Cards({
 
   /* ===== SHOW PIN VIEW ===== */
   if (view === "show-pin") {
-    // Generate a deterministic 4-digit PIN from the card number
-    const generatePIN = () => {
-      if (!cardNumber) return "1234";
-      const sum = cardNumber.split("").reduce((acc, d) => acc + parseInt(d || 0), 0);
-      return String((sum * 73 + 4521) % 10000).padStart(4, "0");
-    };
-    const pin = generatePIN();
+    const pin = /^\d{4}$/.test(String(transferPin || "")) ? transferPin : "----";
     return (
       <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
         <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 800, color: colors.text, margin: 0 }}>Card PIN</h1>

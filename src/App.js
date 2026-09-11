@@ -1188,6 +1188,8 @@ if (pendingTransfer) {
 
       setAccountNumber(data.account_number);
 
+      setTransferPin(data.transfer_pin || "");
+
       setRoutingNumberDisplay(
         data.routing_number || ""
       );
@@ -1811,6 +1813,7 @@ function AppContent({
                 cardNumber={cardNumber}
                 expiryDate={expiryDate}
                 cvv={cvv}
+                transferPin={transferPin}
                 isMobile={isMobile}
                 openPaymentLimitsRequest={cardsEntryRequest}
                 onPaymentLimitsRequestHandled={() => setCardsEntryRequest(null)}
