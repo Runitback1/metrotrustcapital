@@ -4,22 +4,6 @@ import { formatCurrency } from "../utils/currency";
 
 export default function Transactions({ transactions, userExternalTransfers, accountNumber, isMobile }) {
   const { colors, isDark } = useContext(ThemeContext);
-                <button
-                  type="button"
-                  onClick={() => openReceipt(tx)}
-                  style={{
-                    marginTop: 8,
-                    border: "none",
-                    background: "transparent",
-                    color: colors.primary,
-                    fontSize: isMobile ? 10 : 11,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
-                  View receipt
-                </button>
   const [activeFilter, setActiveFilter] = useState("all");
   const [transactionSearch, setTransactionSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
@@ -518,10 +502,24 @@ export default function Transactions({ transactions, userExternalTransfers, acco
             ? (tx.receiver_name || tx.receiver_account || "Recipient")
             : (tx.sender_name || tx.sender_account || "Sender");
           return (
-            <div key={tx.id} style={{
+            <div
+              key={tx.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => openReceipt(tx)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openReceipt(tx);
+                }
+              }}
+              aria-label={`View receipt for ${counterparty}`}
+              style={{
               padding: isMobile ? "14px 16px" : "16px 20px",
               borderBottom: idx < paginatedTransactions.length - 1 ? `1px solid ${colors.border}` : "none",
               display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+              cursor: "pointer",
+              outline: "none",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                 <div style={{
@@ -559,6 +557,9 @@ export default function Transactions({ transactions, userExternalTransfers, acco
                   textTransform: "capitalize",
                 }}>
                   {tx.status}
+                </div>
+                <div style={{ marginTop: 8, color: colors.primary, fontSize: isMobile ? 10 : 11, fontWeight: 700 }}>
+                  View receipt
                 </div>
               </div>
             </div>
