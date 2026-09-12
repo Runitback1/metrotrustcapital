@@ -647,7 +647,30 @@ useEffect(() => {
     }
 
     const openingDate = new Date().toISOString().split("T")[0];
-    const requestAccountNumber = `REQ-${Math.floor(100000000 + Math.random() * 900000000)}`;
+    let requestAccountNumber = "";
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = String(Math.floor(100000000 + Math.random() * 900000000));
+      const { data: matchingAccounts, error: accountNumberError } = await supabase
+        .from("accounts")
+        .select("id")
+        .eq("account_number", candidate)
+        .limit(1);
+
+      if (accountNumberError) {
+        alert(accountNumberError.message);
+        return;
+      }
+
+      if (!matchingAccounts || matchingAccounts.length === 0) {
+        requestAccountNumber = candidate;
+        break;
+      }
+    }
+
+    if (!requestAccountNumber) {
+      alert("Unable to generate a unique account number. Please try again.");
+      return;
+    }
 
     const accountRequestPayload = {
       user_id: null,
