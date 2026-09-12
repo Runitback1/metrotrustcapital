@@ -94,8 +94,9 @@ export default function Cards({
     }
   }, [openPaymentLimitsRequest, onPaymentLimitsRequestHandled]);
 
-  const maskedNumber = cardNumber
-    ? `${cardNumber.slice(0,4)} ${cardNumber.slice(4,8)} ${cardNumber.slice(8,12)} ${cardNumber.slice(12,16)}`
+  const normalizedCardNumber = String(cardNumber || "").replace(/\D/g, "");
+  const maskedNumber = normalizedCardNumber
+    ? `•••• •••• •••• ${normalizedCardNumber.slice(-4)}`
     : "•••• •••• •••• 7924";
 
   const displayNumber = cardNumber
