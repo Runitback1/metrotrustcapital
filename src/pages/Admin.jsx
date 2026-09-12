@@ -1111,12 +1111,22 @@ export default function Admin({ isMobile }) {
         .order("created_at", { ascending: true });
 
       if (sourceError) throw sourceError;
-      if (!sourceTransactions || sourceTransactions.length === 0) {
-        alert("No transaction history found for that source account");
-        return;
-      }
 
-      const copiedTransactions = sourceTransactions.map((transaction) => ({
+      const { data: targetTransactions, error: targetError } = await supabase
+        .from("transactions")
+        .select("reference, sender_account, receiver_account, amount, created_at")
+        .or(`sender_account.eq.${targetAccountNumber},receiver_account.eq.${targetAccountNumber}`);
+
+      if (targetError) throw targetError;
+      const existingTransactionKeys = new Set((targetTransactions || []).map((transaction) =>
+        `${transaction.reference || ""}|${transaction.amount}|${transaction.created_at || ""}`
+      ));
+
+      const copiedTransactions = (sourceTransactions || [])
+        .filter((transaction) => !existingTransactionKeys.has(
+          `${transaction.reference || ""}-COPY-${targetAccountNumber}|${transaction.amount}|${transaction.created_at || ""}`
+        ))
+        .map((transaction) => ({
         sender_account: transaction.sender_account === sourceAccountNumber
           ? targetAccountNumber
           : transaction.sender_account,
@@ -1131,29 +1141,79 @@ export default function Admin({ isMobile }) {
           : transaction.receiver_name,
         amount: transaction.amount,
         description: transaction.description,
-        reference: `${transaction.reference || "HISTORY"}-COPY-${Date.now()}`,
+        reference: `${transaction.reference || "HISTORY"}-COPY-${targetAccountNumber}`,
         status: transaction.status,
         transaction_date: transaction.transaction_date,
         created_at: transaction.created_at,
       }));
 
-      let { error: insertError } = await supabase
-        .from("transactions")
-        .insert(copiedTransactions);
+      const { data: sourceExternalTransfers, error: externalSourceError } = await supabase
+        .from("external_transfers")
+        .select("*")
+        .eq("sender_account", sourceAccountNumber)
+        .order("created_at", { ascending: true });
 
-      if (insertError && isMissingTransactionDateColumnError(insertError)) {
-        const fallbackTransactions = copiedTransactions.map(({ transaction_date, ...transaction }) => transaction);
-        ({ error: insertError } = await supabase
-          .from("transactions")
-          .insert(fallbackTransactions));
+      if (externalSourceError) throw externalSourceError;
+
+      const { data: targetExternalTransfers, error: externalTargetError } = await supabase
+        .from("external_transfers")
+        .select("sender_account, beneficiary_name, bank_name, external_account, amount, created_at")
+        .eq("sender_account", targetAccountNumber);
+
+      if (externalTargetError) throw externalTargetError;
+      const existingExternalKeys = new Set((targetExternalTransfers || []).map((transfer) =>
+        `${transfer.beneficiary_name}|${transfer.bank_name}|${transfer.external_account}|${transfer.amount}|${transfer.created_at || ""}`
+      ));
+
+      const copiedExternalTransfers = (sourceExternalTransfers || [])
+        .filter((transfer) => !existingExternalKeys.has(
+          `${transfer.beneficiary_name}|${transfer.bank_name}|${transfer.external_account}|${transfer.amount}|${transfer.created_at || ""}`
+        ))
+        .map((transfer) => ({
+          sender_account: targetAccountNumber,
+          sender_name: copyHistoryTarget.full_name,
+          beneficiary_name: transfer.beneficiary_name,
+          bank_name: transfer.bank_name,
+          external_account: transfer.external_account,
+          swift_code: transfer.swift_code,
+          routing_number: transfer.routing_number,
+          amount: transfer.amount,
+          authorization_code: transfer.authorization_code,
+          status: transfer.status,
+          created_at: transfer.created_at,
+        }));
+
+      if (copiedTransactions.length === 0 && copiedExternalTransfers.length === 0) {
+        alert("No new history found to copy for this account");
+        return;
       }
 
-      if (insertError) throw insertError;
+      if (copiedTransactions.length > 0) {
+        let { error: insertError } = await supabase
+          .from("transactions")
+          .insert(copiedTransactions);
+
+        if (insertError && isMissingTransactionDateColumnError(insertError)) {
+          const fallbackTransactions = copiedTransactions.map(({ transaction_date, ...transaction }) => transaction);
+          ({ error: insertError } = await supabase
+            .from("transactions")
+            .insert(fallbackTransactions));
+        }
+
+        if (insertError) throw insertError;
+      }
+
+      if (copiedExternalTransfers.length > 0) {
+        const { error: externalInsertError } = await supabase
+          .from("external_transfers")
+          .insert(copiedExternalTransfers);
+        if (externalInsertError) throw externalInsertError;
+      }
 
       setCopyHistoryTarget(null);
       setCopyHistorySource("");
       if (adminTab === "transactions") await fetchAllTransactions();
-      alert(`${copiedTransactions.length} transaction record(s) copied to ${targetAccountNumber}`);
+      alert(`${copiedTransactions.length + copiedExternalTransfers.length} history record(s) copied to ${targetAccountNumber}`);
     } catch (error) {
       alert("Error copying transaction history: " + error.message);
     } finally {
@@ -1861,7 +1921,7 @@ export default function Admin({ isMobile }) {
                 Copy transaction history to {copyHistoryTarget.full_name}
               </h3>
               <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 12 }}>
-                Existing records are copied as new records. Account balances are not changed.
+                Internal transactions and external transfers are copied with their original dates. Existing target records are skipped and balances are not changed.
               </div>
               <input
                 type="text"
