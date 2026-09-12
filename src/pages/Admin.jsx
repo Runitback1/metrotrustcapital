@@ -47,6 +47,8 @@ export default function Admin({ isMobile }) {
   const [editPassword, setEditPassword] = useState("");
   const [hasMoreAccounts, setHasMoreAccounts] = useState(false);
   const [accountLoadError, setAccountLoadError] = useState("");
+  const [copyHistoryTarget, setCopyHistoryTarget] = useState(null);
+  const [copyHistorySource, setCopyHistorySource] = useState("");
 
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferAccount, setTransferAccount] = useState("");
@@ -432,6 +434,24 @@ export default function Admin({ isMobile }) {
         const future = new Date(now.getFullYear() + 3, now.getMonth(), now.getDate());
         return `${String(future.getMonth() + 1).padStart(2, "0")}/${String(future.getFullYear()).slice(-2)}`;
       })();
+      const previousAccountNumber = String(requestAccount.account_number || "");
+      const approvedAccountNumber = previousAccountNumber.startsWith("REQ-")
+        ? generatedAccountNumber
+        : previousAccountNumber;
+
+      if (previousAccountNumber && previousAccountNumber !== approvedAccountNumber) {
+        const { error: senderHistoryError } = await supabase
+          .from("transactions")
+          .update({ sender_account: approvedAccountNumber })
+          .eq("sender_account", previousAccountNumber);
+        if (senderHistoryError) throw senderHistoryError;
+
+        const { error: receiverHistoryError } = await supabase
+          .from("transactions")
+          .update({ receiver_account: approvedAccountNumber })
+          .eq("receiver_account", previousAccountNumber);
+        if (receiverHistoryError) throw receiverHistoryError;
+      }
 
       const { data: updatedRows, error: updateError } = await supabase
         .from("accounts")
@@ -440,10 +460,7 @@ export default function Admin({ isMobile }) {
           status: "Active",
           account_origin: "user_pending_approval",
           opening_date: requestAccount.opening_date || getTodayDate(),
-          account_number:
-            String(requestAccount.account_number || "").startsWith("REQ-")
-              ? generatedAccountNumber
-              : requestAccount.account_number,
+          account_number: approvedAccountNumber,
           routing_number: requestAccount.routing_number || "021000021",
           swift_code: requestAccount.swift_code || "MTCPUS33",
           account_type: requestAccount.account_type || "Savings",
@@ -1065,6 +1082,79 @@ export default function Admin({ isMobile }) {
     }
   };
 
+  const handleCopyTransactionHistory = async () => {
+    const sourceAccountNumber = copyHistorySource.trim();
+    const targetAccountNumber = String(copyHistoryTarget?.account_number || "").trim();
+
+    if (!sourceAccountNumber || !targetAccountNumber) {
+      alert("Enter a source account number");
+      return;
+    }
+
+    if (sourceAccountNumber === targetAccountNumber) {
+      alert("Source and target accounts must be different");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data: sourceTransactions, error: sourceError } = await supabase
+        .from("transactions")
+        .select(TRANSACTION_FIELDS)
+        .or(`sender_account.eq.${sourceAccountNumber},receiver_account.eq.${sourceAccountNumber}`)
+        .order("created_at", { ascending: true });
+
+      if (sourceError) throw sourceError;
+      if (!sourceTransactions || sourceTransactions.length === 0) {
+        alert("No transaction history found for that source account");
+        return;
+      }
+
+      const copiedTransactions = sourceTransactions.map((transaction) => ({
+        sender_account: transaction.sender_account === sourceAccountNumber
+          ? targetAccountNumber
+          : transaction.sender_account,
+        sender_name: transaction.sender_account === sourceAccountNumber
+          ? copyHistoryTarget.full_name
+          : transaction.sender_name,
+        receiver_account: transaction.receiver_account === sourceAccountNumber
+          ? targetAccountNumber
+          : transaction.receiver_account,
+        receiver_name: transaction.receiver_account === sourceAccountNumber
+          ? copyHistoryTarget.full_name
+          : transaction.receiver_name,
+        amount: transaction.amount,
+        description: transaction.description,
+        reference: `${transaction.reference || "HISTORY"}-COPY-${Date.now()}`,
+        status: transaction.status,
+        transaction_date: transaction.transaction_date,
+        created_at: transaction.created_at,
+      }));
+
+      let { error: insertError } = await supabase
+        .from("transactions")
+        .insert(copiedTransactions);
+
+      if (insertError && isMissingTransactionDateColumnError(insertError)) {
+        const fallbackTransactions = copiedTransactions.map(({ transaction_date, ...transaction }) => transaction);
+        ({ error: insertError } = await supabase
+          .from("transactions")
+          .insert(fallbackTransactions));
+      }
+
+      if (insertError) throw insertError;
+
+      setCopyHistoryTarget(null);
+      setCopyHistorySource("");
+      if (adminTab === "transactions") await fetchAllTransactions();
+      alert(`${copiedTransactions.length} transaction record(s) copied to ${targetAccountNumber}`);
+    } catch (error) {
+      alert("Error copying transaction history: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startEditTransactionDate = (tx) => {
     setEditingTransactionId(tx.id);
     setEditTransactionDate(getTransactionDate(tx));
@@ -1645,6 +1735,15 @@ export default function Admin({ isMobile }) {
                     >
                       Edit Account
                     </button>
+                    <button
+                      onClick={() => {
+                        setCopyHistoryTarget(acc);
+                        setCopyHistorySource("");
+                      }}
+                      style={{ flex: 1, padding: "10px", borderRadius: 6, border: "1px solid #1a3a52", background: "transparent", color: "#1a3a52", fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+                    >
+                      Copy History
+                    </button>
                     {(acc.status === "Active" || acc.status === "Frozen") && (
                       <button
                         onClick={() => handleToggleAccountFreeze(acc)}
@@ -1679,6 +1778,42 @@ export default function Admin({ isMobile }) {
             >
               {loading ? "Loading..." : "Load more accounts"}
             </button>
+          )}
+
+          {copyHistoryTarget && (
+            <div style={{ background: colors.card, borderRadius: 12, padding: 20, border: `1px solid ${colors.border}` }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: colors.text, margin: "0 0 8px" }}>
+                Copy transaction history to {copyHistoryTarget.full_name}
+              </h3>
+              <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 12 }}>
+                Existing records are copied as new records. Account balances are not changed.
+              </div>
+              <input
+                type="text"
+                placeholder="Source account number"
+                value={copyHistorySource}
+                onChange={(event) => setCopyHistorySource(event.target.value)}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.bg, color: colors.text, fontSize: 13, boxSizing: "border-box", marginBottom: 10 }}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleCopyTransactionHistory}
+                  disabled={loading}
+                  style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: colors.primary, color: "white", fontWeight: 700, cursor: "pointer", fontSize: 12 }}
+                >
+                  {loading ? "Copying..." : "Copy History"}
+                </button>
+                <button
+                  onClick={() => {
+                    setCopyHistoryTarget(null);
+                    setCopyHistorySource("");
+                  }}
+                  style={{ padding: "10px 16px", borderRadius: 8, border: `1px solid ${colors.border}`, background: "transparent", color: colors.text, fontWeight: 700, cursor: "pointer", fontSize: 12 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}
