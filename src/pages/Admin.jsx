@@ -1155,6 +1155,52 @@ export default function Admin({ isMobile }) {
     }
   };
 
+  const handleRecoverAccountHistory = async (account) => {
+    const targetAccountNumber = String(account?.account_number || "").trim();
+    const accountName = String(account?.full_name || "").trim();
+
+    if (!targetAccountNumber || !accountName) return;
+
+    try {
+      setLoading(true);
+      const { data: matchingTransactions, error: matchingError } = await supabase
+        .from("transactions")
+        .select(TRANSACTION_FIELDS)
+        .or(`sender_name.ilike.*${accountName}*,receiver_name.ilike.*${accountName}*`)
+        .neq("sender_account", targetAccountNumber)
+        .neq("receiver_account", targetAccountNumber);
+
+      if (matchingError) throw matchingError;
+
+      if (!matchingTransactions || matchingTransactions.length === 0) {
+        alert("No detached history found for this account");
+        return;
+      }
+
+      const transactionIds = matchingTransactions.map((transaction) => transaction.id);
+      const { error: senderUpdateError } = await supabase
+        .from("transactions")
+        .update({ sender_account: targetAccountNumber })
+        .in("id", transactionIds)
+        .ilike("sender_name", `%${accountName}%`);
+      if (senderUpdateError) throw senderUpdateError;
+
+      const { error: receiverUpdateError } = await supabase
+        .from("transactions")
+        .update({ receiver_account: targetAccountNumber })
+        .in("id", transactionIds)
+        .ilike("receiver_name", `%${accountName}%`);
+      if (receiverUpdateError) throw receiverUpdateError;
+
+      if (adminTab === "transactions") await fetchAllTransactions();
+      alert(`${matchingTransactions.length} detached transaction record(s) recovered for ${accountName}`);
+    } catch (error) {
+      alert("Error recovering account history: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startEditTransactionDate = (tx) => {
     setEditingTransactionId(tx.id);
     setEditTransactionDate(getTransactionDate(tx));
@@ -1743,6 +1789,13 @@ export default function Admin({ isMobile }) {
                       style={{ flex: 1, padding: "10px", borderRadius: 6, border: "1px solid #1a3a52", background: "transparent", color: "#1a3a52", fontWeight: 700, cursor: "pointer", fontSize: 13 }}
                     >
                       Copy History
+                    </button>
+                    <button
+                      onClick={() => handleRecoverAccountHistory(acc)}
+                      disabled={loading}
+                      style={{ flex: 1, padding: "10px", borderRadius: 6, border: "1px solid #1a3a52", background: "transparent", color: "#1a3a52", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", fontSize: 13 }}
+                    >
+                      Recover History
                     </button>
                     {(acc.status === "Active" || acc.status === "Frozen") && (
                       <button
