@@ -451,6 +451,12 @@ export default function Admin({ isMobile }) {
           .update({ receiver_account: approvedAccountNumber })
           .eq("receiver_account", previousAccountNumber);
         if (receiverHistoryError) throw receiverHistoryError;
+
+        const { error: externalHistoryError } = await supabase
+          .from("external_transfers")
+          .update({ sender_account: approvedAccountNumber })
+          .eq("sender_account", previousAccountNumber);
+        if (externalHistoryError) throw externalHistoryError;
       }
 
       const { data: updatedRows, error: updateError } = await supabase
@@ -1172,28 +1178,44 @@ export default function Admin({ isMobile }) {
 
       if (matchingError) throw matchingError;
 
-      if (!matchingTransactions || matchingTransactions.length === 0) {
-        alert("No detached history found for this account");
-        return;
+      if (matchingTransactions && matchingTransactions.length > 0) {
+        const transactionIds = matchingTransactions.map((transaction) => transaction.id);
+        const { error: senderUpdateError } = await supabase
+          .from("transactions")
+          .update({ sender_account: targetAccountNumber })
+          .in("id", transactionIds)
+          .ilike("sender_name", `%${accountName}%`);
+        if (senderUpdateError) throw senderUpdateError;
+
+        const { error: receiverUpdateError } = await supabase
+          .from("transactions")
+          .update({ receiver_account: targetAccountNumber })
+          .in("id", transactionIds)
+          .ilike("receiver_name", `%${accountName}%`);
+        if (receiverUpdateError) throw receiverUpdateError;
       }
 
-      const transactionIds = matchingTransactions.map((transaction) => transaction.id);
-      const { error: senderUpdateError } = await supabase
-        .from("transactions")
-        .update({ sender_account: targetAccountNumber })
-        .in("id", transactionIds)
-        .ilike("sender_name", `%${accountName}%`);
-      if (senderUpdateError) throw senderUpdateError;
-
-      const { error: receiverUpdateError } = await supabase
-        .from("transactions")
-        .update({ receiver_account: targetAccountNumber })
-        .in("id", transactionIds)
-        .ilike("receiver_name", `%${accountName}%`);
-      if (receiverUpdateError) throw receiverUpdateError;
-
       if (adminTab === "transactions") await fetchAllTransactions();
-      alert(`${matchingTransactions.length} detached transaction record(s) recovered for ${accountName}`);
+
+      const { data: matchingExternalTransfers, error: externalMatchError } = await supabase
+        .from("external_transfers")
+        .select("id, sender_account, sender_name")
+        .ilike("sender_name", `%${accountName}%`)
+        .neq("sender_account", targetAccountNumber);
+
+      if (externalMatchError) throw externalMatchError;
+
+      if (matchingExternalTransfers && matchingExternalTransfers.length > 0) {
+        const externalIds = matchingExternalTransfers.map((transfer) => transfer.id);
+        const { error: externalUpdateError } = await supabase
+          .from("external_transfers")
+          .update({ sender_account: targetAccountNumber })
+          .in("id", externalIds);
+        if (externalUpdateError) throw externalUpdateError;
+      }
+
+      const recoveredCount = matchingTransactions.length + (matchingExternalTransfers?.length || 0);
+      alert(`${recoveredCount} detached transaction record(s) recovered for ${accountName}`);
     } catch (error) {
       alert("Error recovering account history: " + error.message);
     } finally {
