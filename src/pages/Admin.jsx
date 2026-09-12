@@ -392,20 +392,33 @@ export default function Admin({ isMobile }) {
       }
 
       setLoading(true);
-      const randomPassword = `${Math.random().toString(36).slice(-8)}Aa1!`;
-      const signUpResult = await adminAuthClient.auth.signUp({
-        email: normalizeEmail(requestAccount.email),
-        password: randomPassword,
-        options: {
-          data: {
-            full_name: requestAccount.full_name,
-          },
-        },
-      });
+      let authUserId = requestAccount.user_id || null;
 
-      if (signUpResult.error) throw signUpResult.error;
-      if (!signUpResult.data?.user?.id) {
-        throw new Error("Unable to create login profile for this request");
+      if (!authUserId) {
+        const randomPassword = `${Math.random().toString(36).slice(-8)}Aa1!`;
+        const signUpResult = await adminAuthClient.auth.signUp({
+          email: normalizeEmail(requestAccount.email),
+          password: randomPassword,
+          options: {
+            data: {
+              full_name: requestAccount.full_name,
+            },
+          },
+        });
+
+        if (signUpResult.error) {
+          if (signUpResult.error.message?.toLowerCase().includes("already registered")) {
+            throw new Error(
+              "This email already has a login profile, but this request is not linked to it. Open the matching account record, set/reset its password, then approve this request again."
+            );
+          }
+          throw signUpResult.error;
+        }
+
+        authUserId = signUpResult.data?.user?.id || null;
+        if (!authUserId) {
+          throw new Error("Unable to create login profile for this request");
+        }
       }
 
       const generatedAccountNumber = String(
@@ -423,7 +436,7 @@ export default function Admin({ isMobile }) {
       const { data: updatedRows, error: updateError } = await supabase
         .from("accounts")
         .update({
-          user_id: signUpResult.data.user.id,
+          user_id: authUserId,
           status: "Active",
           account_origin: "user_pending_approval",
           opening_date: requestAccount.opening_date || getTodayDate(),
