@@ -16,12 +16,23 @@ export default function Dashboard({
 }) {
   const { isDark, colors } = useContext(ThemeContext);
   const [showBalance, setShowBalance] = useState(true);
-  const [liveRates, setLiveRates] = useState([
-    { pair: "EUR/USD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
-    { pair: "GBP/USD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
-    { pair: "AUD/USD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
-    { pair: "GOLD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
-  ]);
+  const [liveRates, setLiveRates] = useState(() => {
+    const defaultRates = [
+      { pair: "EUR/USD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
+      { pair: "GBP/USD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
+      { pair: "AUD/USD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
+      { pair: "GOLD", rate: "--", numericRate: null, change: "▲", color: "#2563eb" },
+    ];
+
+    try {
+      const savedRates = JSON.parse(localStorage.getItem("metrotrust-live-rates"));
+      return Array.isArray(savedRates) && savedRates.length === defaultRates.length
+        ? savedRates
+        : defaultRates;
+    } catch {
+      return defaultRates;
+    }
+  });
 
   // Stream live FX prices and poll gold proxy; fall back to HTTP snapshots if stream drops.
   useEffect(() => {
@@ -73,7 +84,7 @@ export default function Dashboard({
           return acc;
         }, {});
 
-        return next.map((item) => {
+        const updatedRates = next.map((item) => {
           const previous = previousByPair[item.pair];
           const effectiveNumericRate = item.numericRate ?? previous?.numericRate ?? null;
           const effectiveRate = item.rate !== "--" ? item.rate : previous?.rate || "--";
@@ -92,51 +103,62 @@ export default function Dashboard({
             color: movement.color,
           };
         });
+
+        try {
+          localStorage.setItem("metrotrust-live-rates", JSON.stringify(updatedRates));
+        } catch {
+          // Storage can be unavailable in private browsing; the live display still works.
+        }
+
+        return updatedRates;
       });
     };
 
     const fetchLiveRates = async () => {
       try {
-        const [eurUsdResponse, gbpUsdResponse, audUsdResponse, eurUsdFallbackResponse, gbpUsdFallbackResponse, audUsdFallbackResponse, goldResponse] = await Promise.all([
-          fetch("https://api.binance.com/api/v3/ticker/bookTicker?symbol=EURUSDT"),
-          fetch("https://api.binance.com/api/v3/ticker/bookTicker?symbol=GBPUSDT"),
-          fetch("https://api.binance.com/api/v3/ticker/bookTicker?symbol=AUDUSDT"),
-          fetch("https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT"),
-          fetch("https://api.binance.com/api/v3/ticker/price?symbol=GBPUSDT"),
-          fetch("https://api.binance.com/api/v3/ticker/price?symbol=AUDUSDT"),
-          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether-gold&vs_currencies=usd"),
-        ]);
+        // Use two unrelated public FX sources. A VPN or regional block affecting
+        // one provider must not leave the desktop cards empty.
+        const getFxRates = async () => {
+          const providers = [
+            async () => {
+              const response = await fetch(
+                "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,GBP,AUD"
+              );
+              if (!response.ok) throw new Error("Primary FX rate request failed");
+              const data = await response.json();
+              return {
+                eurUsd: 1 / Number(data?.rates?.EUR),
+                gbpUsd: 1 / Number(data?.rates?.GBP),
+                audUsd: 1 / Number(data?.rates?.AUD),
+              };
+            },
+            async () => {
+              const response = await fetch("https://open.er-api.com/v6/latest/USD");
+              if (!response.ok) throw new Error("Backup FX rate request failed");
+              const data = await response.json();
+              return {
+                eurUsd: 1 / Number(data?.rates?.EUR),
+                gbpUsd: 1 / Number(data?.rates?.GBP),
+                audUsd: 1 / Number(data?.rates?.AUD),
+              };
+            },
+          ];
 
-        const [eurUsdData, gbpUsdData, audUsdData, eurUsdFallbackData, gbpUsdFallbackData, audUsdFallbackData, goldData] = await Promise.all([
-          eurUsdResponse.json(),
-          gbpUsdResponse.json(),
-          audUsdResponse.json(),
-          eurUsdFallbackResponse.json(),
-          gbpUsdFallbackResponse.json(),
-          audUsdFallbackResponse.json(),
-          goldResponse.json(),
-        ]);
-
-        const getMidPrice = (ticker, fallbackTicker) => {
-          const bid = Number(ticker?.bidPrice);
-          const ask = Number(ticker?.askPrice);
-          if (Number.isFinite(bid) && Number.isFinite(ask) && bid > 0 && ask > 0) {
-            return (bid + ask) / 2;
+          for (const provider of providers) {
+            try {
+              const rates = await provider();
+              if (Object.values(rates).every((rate) => Number.isFinite(rate) && rate > 0)) {
+                return rates;
+              }
+            } catch {
+              // Try the next independent provider.
+            }
           }
 
-          const last = Number(ticker?.price);
-          if (Number.isFinite(last) && last > 0) {
-            return last;
-          }
-
-          const fallbackLast = Number(fallbackTicker?.price);
-          return Number.isFinite(fallbackLast) && fallbackLast > 0 ? fallbackLast : null;
+          throw new Error("All FX rate providers are unavailable");
         };
 
-        const eurUsd = getMidPrice(eurUsdData, eurUsdFallbackData);
-        const gbpUsd = getMidPrice(gbpUsdData, gbpUsdFallbackData);
-        const audUsd = getMidPrice(audUsdData, audUsdFallbackData);
-        const goldUsd = Number(goldData?.["tether-gold"]?.usd);
+        const { eurUsd, gbpUsd, audUsd } = await getFxRates();
 
         applyRateUpdate([
           {
@@ -156,6 +178,28 @@ export default function Dashboard({
           },
           {
             pair: "GOLD",
+            // Gold is updated separately so its provider cannot blank the FX cards.
+            numericRate: null,
+            rate: "--",
+          },
+        ]);
+      } catch (error) {
+        // Keep last known values on intermittent API failures.
+      }
+    };
+
+    const fetchGoldRate = async () => {
+      try {
+        const response = await fetch(
+          "https://api.coingecko.com/api/v3/simple/price?ids=tether-gold&vs_currencies=usd"
+        );
+        if (!response.ok) throw new Error("Gold rate request failed");
+        const goldData = await response.json();
+        const goldUsd = Number(goldData?.["tether-gold"]?.usd);
+        applyRateUpdate([
+          ...fxPairs.map((pair) => ({ pair, numericRate: null, rate: "--" })),
+          {
+            pair: "GOLD",
             numericRate: Number.isFinite(goldUsd) ? goldUsd : null,
             rate: Number.isFinite(goldUsd)
               ? `$${goldUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
@@ -163,7 +207,7 @@ export default function Dashboard({
           },
         ]);
       } catch (error) {
-        // Keep last known values on intermittent API failures.
+        // Keep the most recent gold value if this optional feed is unavailable.
       }
     };
 
@@ -218,12 +262,15 @@ export default function Dashboard({
     };
 
     fetchLiveRates();
+    fetchGoldRate();
     connectFxStream();
     const interval = setInterval(fetchLiveRates, 10000);
+    const goldInterval = setInterval(fetchGoldRate, 60000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      clearInterval(goldInterval);
       if (fxSocket && fxSocket.readyState === WebSocket.OPEN) {
         fxSocket.close();
       }
