@@ -593,19 +593,17 @@ export default function Admin({ isMobile }) {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("accounts")
-        .update({ email: normalizedEmail })
-        .eq("id", accountId)
-        .select(ACCOUNT_FIELDS);
+      const { data, error } = await supabase.functions.invoke("admin-update-email", {
+        body: { accountId, email: normalizedEmail },
+      });
 
       if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error("No account row was updated");
+      if (!data?.account) {
+        throw new Error(data?.error || "The login email could not be updated");
       }
 
-      alert("Email updated successfully");
-      setAccounts((current) => current.map((account) => (account.id === accountId ? data[0] : account)));
+      alert("Login and account email updated successfully");
+      setAccounts((current) => current.map((account) => (account.id === accountId ? data.account : account)));
       await fetchAccounts();
     } catch (error) {
       alert("Error updating email: " + error.message);

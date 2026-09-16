@@ -1,0 +1,4 @@
+project_id = "sssiuusragfwlpqpafjt"
+
+[functions.admin-update-email]
+verify_jwt = true
