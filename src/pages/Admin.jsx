@@ -1086,6 +1086,46 @@ export default function Admin({ isMobile }) {
     }
   };
 
+  const handleDeleteTransaction = async (transaction, table) => {
+    const isExternal = table === "external_transfers";
+    const label = isExternal ? "external transfer" : "transaction";
+    const reference = transaction.reference || transaction.external_account || transaction.id;
+
+    if (!window.confirm(
+      `Delete this ${label} record (${reference})? This removes it from transaction history only and does not change account balances. This cannot be undone.`
+    )) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from(table)
+        .delete()
+        .eq("id", transaction.id)
+        .select("id");
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error(`No ${label} record was deleted`);
+      }
+
+      if (isExternal) {
+        setExternalTransfers((current) => current.filter((item) => item.id !== transaction.id));
+      } else {
+        setAllTransactions((current) => current.filter((item) => item.id !== transaction.id));
+        setEditingTransactionDetailsId((current) => current === transaction.id ? null : current);
+        setEditingTransactionId((current) => current === transaction.id ? null : current);
+      }
+
+      alert(`${isExternal ? "External transfer" : "Transaction"} record deleted`);
+    } catch (error) {
+      alert(`Error deleting ${label}: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCopyTransactionHistory = async () => {
     const sourceAccountNumber = copyHistorySource.trim();
     const targetAccountNumber = String(copyHistoryTarget?.account_number || "").trim();
@@ -2071,6 +2111,13 @@ export default function Admin({ isMobile }) {
                     >
                       Edit Details
                     </button>
+                    <button
+                      onClick={() => handleDeleteTransaction(tx, "transactions")}
+                      disabled={loading}
+                      style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: "#dc2626", color: "white", fontWeight: 700, cursor: "pointer", fontSize: 11 }}
+                    >
+                      Delete
+                    </button>
                   </div>
                   {editingTransactionDetailsId === tx.id && (
                     <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 8, padding: 12, borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.bg }}>
@@ -2257,6 +2304,13 @@ export default function Admin({ isMobile }) {
                     </button>
                   </div>
                 )}
+                <button
+                  onClick={() => handleDeleteTransaction(tx, "external_transfers")}
+                  disabled={loading}
+                  style={{ padding: "10px 16px", borderRadius: 6, border: "none", background: "#dc2626", color: "white", fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+                >
+                  Delete
+                </button>
               </div>
             ))
           )}
