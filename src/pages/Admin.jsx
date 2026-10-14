@@ -900,10 +900,23 @@ export default function Admin({ isMobile }) {
       });
 
       if (transactionError) {
-        await supabase
+        const { error: balanceRollbackError } = await supabase
           .from("accounts")
-          .update({ balance: currentBalance })
-          .eq("account_number", selectedAccountNumber);
+          .update({ balance: Number(senderData.balance) })
+          .eq("account_number", transfer.sender_account);
+        const { error: statusRollbackError } = await supabase
+          .from("external_transfers")
+          .update({ status: "Pending" })
+          .eq("id", transferId);
+
+        if (balanceRollbackError || statusRollbackError) {
+          throw new Error(
+            `Transaction recording failed (${transactionError.message}) and the transfer could not be fully reversed: ${
+              balanceRollbackError?.message || statusRollbackError?.message
+            }`
+          );
+        }
+
         throw transactionError;
       }
 

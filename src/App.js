@@ -4,6 +4,7 @@ import ThemeProvider from "./context/ThemeContext";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Sidebar from "./components/layout/Sidebar";
 import Header from "./components/layout/Header";
+import { getNextLoginImageIndex } from "./utils/loginCarousel";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Transactions = lazy(() => import("./pages/Transactions"));
@@ -74,11 +75,6 @@ export default function App() {
   const [city, setCity] = useState("");
   const [stateName, setStateName] = useState("");
   const [country, setCountry] = useState("");
-  const [selectedCountryCode, setSelectedCountryCode] = useState("");
-  const [countries, setCountries] = useState([]);
-  const [states, setStates] = useState([]);
-  const [selectedStateCode, setSelectedStateCode] = useState("");
-  const [cities, setCities] = useState([]);
   const [zipCode, setZipCode] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
@@ -98,7 +94,6 @@ export default function App() {
   const [authInitError, setAuthInitError] = useState("");
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const lastActivityRef = useRef(Date.now());
-  const geoDataRef = useRef({ Country: null, State: null, City: null });
   const splashTimerRef = useRef(null);
 
   const startSplash = useCallback((durationMs = 3000) => {
@@ -403,92 +398,6 @@ export default function App() {
       supabase.removeChannel(channel);
     };
   }, [user, email]);
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadGeoData = async () => {
-      try {
-        const module = await import("country-state-city");
-        if (!isMounted) return;
-
-        geoDataRef.current = {
-          Country: module.Country,
-          State: module.State,
-          City: module.City,
-        };
-
-        setCountries(module.Country.getAllCountries());
-      } catch (error) {
-        // Keep form usable even if geo helper package fails to load.
-      }
-    };
-
-    loadGeoData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!selectedCountryCode) {
-      return;
-    }
-
-    if (!geoDataRef.current.State || !geoDataRef.current.Country) {
-      return;
-    }
-
-    setStates(geoDataRef.current.State.getStatesOfCountry(selectedCountryCode));
-    setCities([]);
-
-    const selectedCountry = geoDataRef.current.Country.getCountryByCode(selectedCountryCode);
-    if (selectedCountry) {
-      setCountry(selectedCountry.name);
-    }
-  }, [selectedCountryCode]);
-
-  useEffect(() => {
-    if (!selectedStateCode || !selectedCountryCode) {
-      return;
-    }
-
-    if (!geoDataRef.current.City) {
-      return;
-    }
-
-    setCities(geoDataRef.current.City.getCitiesOfState(selectedCountryCode, selectedStateCode));
-
-    const selectedState = states.find(
-      (state) => state.isoCode === selectedStateCode
-    );
-    if (selectedState) {
-      setStateName(selectedState.name);
-    }
-  }, [selectedStateCode, selectedCountryCode, states]);
-
-  useEffect(() => {
-    if (!country || countries.length === 0) return;
-
-    const existingCountry = countries.find(
-      (item) => item.name === country
-    );
-    if (existingCountry) {
-      setSelectedCountryCode(existingCountry.isoCode);
-    }
-  }, [country, countries]);
-
-  useEffect(() => {
-    if (!stateName || states.length === 0) return;
-
-    const existingState = states.find(
-      (item) => item.name === stateName
-    );
-    if (existingState) {
-      setSelectedStateCode(existingState.isoCode);
-    }
-  }, [stateName, states]);
-
   useEffect(() => {
     if (!user) return;
 
@@ -2026,8 +1935,11 @@ const mobileImages = [
 const displayImages = isMobile ? mobileImages : images;
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  setCurrentImageIndex(0);
+  const interval = setInterval(() => {
+    setCurrentImageIndex((prev) =>
+      getNextLoginImageIndex(prev, displayImages.length)
+      );
     }, 4000);
     return () => clearInterval(interval);
   }, [displayImages.length]);
