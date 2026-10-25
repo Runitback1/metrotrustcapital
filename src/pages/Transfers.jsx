@@ -37,14 +37,6 @@ export default function Transfers({
   const [showCodePrompt, setShowCodePrompt] = useState(false);
   const [transferCode, setTransferCode] = useState("");
 
-  const isMissingTransactionDateColumnError = (error) => {
-    const message = error?.message || "";
-    return (
-      message.includes("transaction_date") ||
-      message.includes("Could not find the 'transaction_date' column")
-    );
-  };
-
   const sanitizeAmountInput = (value) => {
     const cleaned = String(value || "")
       .replace(/[^0-9.]/g, "")
@@ -68,41 +60,12 @@ export default function Transfers({
     return Number.isFinite(parsed) ? parsed.toFixed(2) : "";
   };
 
-  const insertTransactionRecord = async (payload) => {
-    const withDatePayload = {
-      ...payload,
-      transaction_date: new Date().toISOString().split("T")[0],
-    };
-
-    const firstAttempt = await supabase
-      .from("transactions")
-      .insert([withDatePayload]);
-
-    if (!firstAttempt.error) return firstAttempt;
-    if (!isMissingTransactionDateColumnError(firstAttempt.error)) {
-      return firstAttempt;
-    }
-
-    const fallbackPayload = { ...withDatePayload };
-    delete fallbackPayload.transaction_date;
-
-    return supabase
-      .from("transactions")
-      .insert([fallbackPayload]);
-  };
-
   const handleInternalTransfer = async () => {
     const amt = parseAmount(internalAmount);
     const recipientAccountNumber = internalRecipient.trim();
-    const senderAccountNumber = String(accountNumber || "").trim();
 
     if (!recipientAccountNumber || !Number.isFinite(amt) || amt <= 0) {
       alert("Please fill in all required fields");
-      return;
-    }
-
-    if (recipientAccountNumber === senderAccountNumber) {
-      alert("You cannot transfer to the same account");
       return;
     }
 
@@ -114,93 +77,15 @@ export default function Transfers({
 
     setLoading(true);
     try {
-      const [senderResult, receiverResult] = await Promise.all([
-        supabase
-          .from("accounts")
-          .select("balance, transfer_pin, status")
-          .eq("account_number", senderAccountNumber)
-          .single(),
-        supabase
-          .from("accounts")
-          .select("balance, full_name, status")
-          .eq("account_number", recipientAccountNumber)
-          .single(),
-      ]);
-      const { data: senderData, error: senderError } = senderResult;
-      const { data: receiverData, error: receiverError } = receiverResult;
-
-      if (senderError || !senderData) {
-        alert("Sender account not found");
-        setLoading(false);
-        return;
-      }
-
-      if (senderData.transfer_pin !== pinPrompt) {
-        alert("Incorrect PIN");
-        setLoading(false);
-        return;
-      }
-
-      if (String(senderData.status || "").toLowerCase() === "frozen") {
-        alert(MAINTENANCE_MESSAGE);
-        setLoading(false);
-        return;
-      }
-
-      if (receiverError || !receiverData) {
-        alert("Recipient account not found");
-        setLoading(false);
-        return;
-      }
-
-      if (String(receiverData.status || "").toLowerCase() === "frozen") {
-        alert(MAINTENANCE_MESSAGE);
-        setLoading(false);
-        return;
-      }
-
-      const senderBalance = Number(senderData.balance || 0);
-      const receiverBalance = Number(receiverData?.balance || 0);
-
-      if (!Number.isFinite(senderBalance)) {
-        alert("Unable to verify sender balance");
-        setLoading(false);
-        return;
-      }
-
-      if (senderBalance + 0.000001 < amt) {
-        alert("Insufficient funds");
-        setLoading(false);
-        return;
-      }
-
-      const [senderUpdate, receiverUpdate] = await Promise.all([
-        supabase
-          .from("accounts")
-          .update({ balance: senderBalance - amt })
-          .eq("account_number", senderAccountNumber),
-        supabase
-          .from("accounts")
-          .update({ balance: (Number.isFinite(receiverBalance) ? receiverBalance : 0) + amt })
-          .eq("account_number", recipientAccountNumber),
-      ]);
-
-      if (senderUpdate.error || receiverUpdate.error) {
-        throw senderUpdate.error || receiverUpdate.error;
-      }
-
-      const { error: transactionError } = await insertTransactionRecord({
-        sender_account: accountNumber,
-        sender_name: fullName,
-        receiver_account: recipientAccountNumber,
-        receiver_name: receiverData.full_name,
-        amount: amt,
-        description: internalDescription || "Internal Transfer",
-        reference: "INT-" + Math.floor(100000 + Math.random() * 900000),
-        status: "Completed",
+      const { error } = await supabase.rpc("transfer_internally", {
+        p_sender_account: String(accountNumber || "").trim(),
+        p_recipient_account: recipientAccountNumber,
+        p_amount: amt,
+        p_transfer_pin: pinPrompt,
+        p_description: internalDescription,
       });
 
-      if (transactionError) throw transactionError;
+      if (error) throw error;
 
       alert("Internal transfer completed successfully!");
       setInternalAmount("0.00");

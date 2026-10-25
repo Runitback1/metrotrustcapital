@@ -68,3 +68,11 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+### Secure internal transfers
+
+Internal transfers use the `public.transfer_internally` database function. Apply
+[`sql/secure_rls_core_tables.sql`](./sql/secure_rls_core_tables.sql) to configure
+account row-level security, then apply
+[`sql/transfer_internally.sql`](./sql/transfer_internally.sql) in the Supabase
+SQL Editor before deploying the updated application.
