@@ -288,6 +288,9 @@ export default function Transactions({ transactions, userExternalTransfers, acco
       isOutgoing,
       senderName,
       receiverName,
+      counterpartyAccount: isOutgoing
+        ? tx?.receiver_account || externalTransfer?.external_account || ""
+        : tx?.sender_account || externalTransfer?.sender_account || "",
       narration,
       currency: tx?.currency || externalTransfer?.currency || "USD",
       referenceCode: getStableCode(`reference-${referenceSeed}`, 12),
@@ -369,7 +372,12 @@ export default function Transactions({ transactions, userExternalTransfers, acco
             <div style={{ display: "grid", gap: 14 }}>
               <ReceiptRow colors={colors} label="Status" value={receipt.status} valueColor={statusColor} />
               <ReceiptRow colors={colors} label={receipt.isOutgoing ? "You sent" : "You received"} value={`$${formatCurrency(receipt.amount)}`} />
-              <ReceiptRow colors={colors} label={receipt.isOutgoing ? "Sent to" : "Received from"} value={primaryParty} />
+              <ReceiptRow
+                colors={colors}
+                label={receipt.isOutgoing ? "Sent to" : "Received from"}
+                value={primaryParty}
+                detail={receipt.counterpartyAccount ? `Account number: ${receipt.counterpartyAccount}` : null}
+              />
               <ReceiptRow colors={colors} label="Narration" value={receipt.narration} />
             </div>
 
@@ -741,11 +749,18 @@ export default function Transactions({ transactions, userExternalTransfers, acco
   );
 }
 
-function ReceiptRow({ colors, label, value, valueColor }) {
+function ReceiptRow({ colors, label, value, valueColor, detail }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18 }}>
       <span style={{ color: colors.textSecondary, fontSize: 15 }}>{label}</span>
-      <span style={{ color: valueColor || colors.text, fontSize: 15, fontWeight: 700, textAlign: "right", overflowWrap: "anywhere" }}>{value}</span>
+      <span style={{ color: valueColor || colors.text, fontSize: 15, fontWeight: 700, textAlign: "right", overflowWrap: "anywhere" }}>
+        {value}
+        {detail && (
+          <span style={{ display: "block", marginTop: 4, color: colors.textSecondary, fontSize: 12, fontWeight: 500 }}>
+            {detail}
+          </span>
+        )}
+      </span>
     </div>
   );
 }
