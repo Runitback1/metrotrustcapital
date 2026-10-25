@@ -44,6 +44,43 @@ WITH CHECK (
   AND (auth.jwt() ->> 'email') <> 'admin@metrotrust.com'
 );
 
+CREATE OR REPLACE FUNCTION public.prevent_unauthorized_account_updates()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_old_account jsonb := to_jsonb(OLD);
+  v_new_account jsonb := to_jsonb(NEW);
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role'
+    AND (auth.jwt() ->> 'email') IS DISTINCT FROM 'admin@metrotrust.com'
+    AND COALESCE(current_setting('metrotrust.internal_transfer', true), '') <> 'on'
+    AND (
+      (v_new_account -> 'id') IS DISTINCT FROM (v_old_account -> 'id')
+      OR (v_new_account -> 'user_id') IS DISTINCT FROM (v_old_account -> 'user_id')
+      OR (v_new_account -> 'email') IS DISTINCT FROM (v_old_account -> 'email')
+      OR (v_new_account -> 'account_number') IS DISTINCT FROM (v_old_account -> 'account_number')
+      OR (v_new_account -> 'balance') IS DISTINCT FROM (v_old_account -> 'balance')
+      OR (v_new_account -> 'status') IS DISTINCT FROM (v_old_account -> 'status')
+      OR (v_new_account -> 'opening_date') IS DISTINCT FROM (v_old_account -> 'opening_date')
+      OR (v_new_account -> 'account_origin') IS DISTINCT FROM (v_old_account -> 'account_origin')
+    ) THEN
+    RAISE EXCEPTION 'Direct updates to protected account fields are not allowed'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS prevent_unauthorized_account_updates ON public.accounts;
+CREATE TRIGGER prevent_unauthorized_account_updates
+BEFORE UPDATE ON public.accounts
+FOR EACH ROW
+EXECUTE FUNCTION public.prevent_unauthorized_account_updates();
+
 -- TRANSACTIONS
 CREATE POLICY admin_all_transactions
 ON public.transactions
@@ -61,16 +98,6 @@ USING (
     SELECT account_number FROM public.accounts WHERE user_id = auth.uid()
   )
   OR receiver_account IN (
-    SELECT account_number FROM public.accounts WHERE user_id = auth.uid()
-  )
-);
-
-CREATE POLICY user_insert_own_transactions
-ON public.transactions
-FOR INSERT
-TO authenticated
-WITH CHECK (
-  sender_account IN (
     SELECT account_number FROM public.accounts WHERE user_id = auth.uid()
   )
 );

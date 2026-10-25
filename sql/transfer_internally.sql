@@ -125,12 +125,16 @@ BEGIN
     RAISE EXCEPTION 'Unable to verify recipient balance';
   END IF;
 
+  PERFORM pg_catalog.set_config('metrotrust.internal_transfer', 'on', true);
+
   UPDATE public.accounts
     SET balance = v_sender.balance - p_amount
     WHERE id = v_sender_id;
   UPDATE public.accounts
     SET balance = v_receiver.balance + p_amount
     WHERE id = v_receiver_id;
+
+  PERFORM pg_catalog.set_config('metrotrust.internal_transfer', 'off', true);
 
   v_reference := 'INT-' || upper(substr(
     md5(random()::text || clock_timestamp()::text),
