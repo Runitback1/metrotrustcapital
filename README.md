@@ -77,7 +77,8 @@ account row-level security, then apply
 [`sql/transfer_internally.sql`](./sql/transfer_internally.sql) in the Supabase
 SQL Editor before deploying the updated application.
 
-Reapply [`sql/secure_rls_core_tables.sql`](./sql/secure_rls_core_tables.sql) to
-prevent authenticated users from editing protected account fields or inserting
-transaction records directly. Internal transfers continue to update both
-balances and record their transaction atomically through the database function.
+Reapply the updated SQL scripts in this order: first
+[`sql/secure_rls_core_tables.sql`](./sql/secure_rls_core_tables.sql), then
+[`sql/transfer_internally.sql`](./sql/transfer_internally.sql). This prevents
+authenticated users from editing protected account fields or inserting
+transaction records directly while keeping internal transfers atomic.
