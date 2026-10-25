@@ -246,6 +246,9 @@ export default function Transactions({ transactions, userExternalTransfers, acco
     return normalized || fallback;
   };
 
+  const getReceiptAccountNumber = (value) =>
+    String(value || "").trim().replace(/^(?:ACC|REQ)\s*-\s*/i, "");
+
   const getStableCode = (value, length, numericOnly = false) => {
     const source = String(value || "transaction");
     let hash = 0;
@@ -288,9 +291,11 @@ export default function Transactions({ transactions, userExternalTransfers, acco
       isOutgoing,
       senderName,
       receiverName,
-      counterpartyAccount: isOutgoing
-        ? tx?.receiver_account || externalTransfer?.external_account || ""
-        : tx?.sender_account || externalTransfer?.sender_account || "",
+      counterpartyAccount: getReceiptAccountNumber(
+        isOutgoing
+          ? tx?.receiver_account || externalTransfer?.external_account || ""
+          : tx?.sender_account || externalTransfer?.sender_account || ""
+      ),
       narration,
       currency: tx?.currency || externalTransfer?.currency || "USD",
       referenceCode: getStableCode(`reference-${referenceSeed}`, 12),
